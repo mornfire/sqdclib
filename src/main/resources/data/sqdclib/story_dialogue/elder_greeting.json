@@ -1,0 +1,124 @@
+{
+  "start": "greet",
+  "nodes": {
+    "greet": {
+      "speaker": {
+        "text": "长老"
+      },
+      "text": {
+        "text": "旅人，你终于醒了。"
+      },
+      "options": [
+        {
+          "text": {
+            "text": "我在哪？"
+          },
+          "next": "where"
+        },
+        {
+          "text": {
+            "text": "（沉默）"
+          },
+          "next": "silence"
+        },
+        {
+          "text": {
+            "text": "我来找遗物。"
+          },
+          "condition": {
+            "type": "flag",
+            "flag": "relic_hunt_started"
+          },
+          "next": "relic"
+        }
+      ]
+    },
+    "where": {
+      "speaker": {
+        "text": "长老"
+      },
+      "text": {
+        "text": "这里是世界尽头的遗迹，星光的终点。"
+      },
+      "options": [
+        {
+          "text": {
+            "text": "我该做什么？"
+          },
+          "next": "task"
+        }
+      ]
+    },
+    "silence": {
+      "speaker": {
+        "text": "长老"
+      },
+      "text": {
+        "text": "……沉默也是一种回答。"
+      },
+      "options": [
+        {
+          "text": {
+            "text": "（离开）"
+          }
+        }
+      ]
+    },
+    "task": {
+      "speaker": {
+        "text": "长老"
+      },
+      "text": {
+        "text": "去收集三块碎片，它们散落在这片大陆上。"
+      },
+      "actions": [
+        {
+          "type": "set_flag",
+          "flag": "met_elder"
+        },
+        {
+          "type": "start_quest",
+          "quest": "sqdclib:first_relic"
+        }
+      ],
+      "options": [
+        {
+          "text": {
+            "text": "明白了。"
+          },
+          "next": "farewell"
+        }
+      ]
+    },
+    "relic": {
+      "speaker": {
+        "text": "长老"
+      },
+      "text": {
+        "text": "碎片已经回应了你，它在指向北方。"
+      },
+      "actions": [
+        {
+          "type": "play_cutscene",
+          "cutscene": "sqdclib:relic_reveal"
+        }
+      ],
+      "options": [
+        {
+          "text": {
+            "text": "（伸出手）"
+          },
+          "next": "farewell"
+        }
+      ]
+    },
+    "farewell": {
+      "speaker": {
+        "text": "长老"
+      },
+      "text": {
+        "text": "去吧，愿星光指引你。"
+      }
+    }
+  }
+}

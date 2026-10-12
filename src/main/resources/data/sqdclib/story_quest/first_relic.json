@@ -1,0 +1,45 @@
+{
+  "title": {
+    "text": "第一件遗物"
+  },
+  "description": {
+    "text": "收集三块散落的碎片。"
+  },
+  "kind": "main",
+  "prerequisites": [
+    "sqdclib:prologue"
+  ],
+  "visible_when": {
+    "type": "phase",
+    "phase": "chapter1"
+  },
+  "objectives": [
+    {
+      "id": "collect",
+      "title": {
+        "text": "收集 3 块碎片"
+      },
+      "done": {
+        "type": "counter",
+        "key": "shards",
+        "at_least": 3
+      }
+    }
+  ],
+  "on_start": [
+    {
+      "type": "set_flag",
+      "flag": "relic_hunt_started"
+    }
+  ],
+  "on_complete": [
+    {
+      "type": "set_flag",
+      "flag": "relic_found"
+    },
+    {
+      "type": "play_cutscene",
+      "cutscene": "sqdclib:relic_reveal"
+    }
+  ]
+}

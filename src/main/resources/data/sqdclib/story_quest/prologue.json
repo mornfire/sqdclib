@@ -1,0 +1,27 @@
+{
+  "title": {
+    "text": "序章：陌生的大陆"
+  },
+  "description": {
+    "text": "与遗迹旁的长老交谈。"
+  },
+  "kind": "main",
+  "objectives": [
+    {
+      "id": "talk",
+      "title": {
+        "text": "与长老交谈"
+      },
+      "done": {
+        "type": "flag",
+        "flag": "met_elder"
+      }
+    }
+  ],
+  "on_complete": [
+    {
+      "type": "set_phase",
+      "phase": "chapter1"
+    }
+  ]
+}
