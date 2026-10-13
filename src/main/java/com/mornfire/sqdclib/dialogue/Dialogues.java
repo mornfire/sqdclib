@@ -153,6 +153,10 @@ public final class Dialogues {
                 present(player, dialogue, definition, nodeId, node, available);
                 return;
             }
+            if (node.waitsForClick()) {
+                present(player, dialogue, definition, nodeId, node, List.of(node.continueOption()));
+                return;
+            }
             if (node.next().isPresent()) {
                 advance(player, dialogue, definition, node.next().get(), guard + 1);
                 return;

@@ -52,7 +52,8 @@ public final class StoryCommands {
                                                 .executes(StoryCommands::completeQuest))
                                         .then(Commands.literal("fail").executes(StoryCommands::failQuest))
                                         .then(Commands.literal("abandon").executes(StoryCommands::abandonQuest))
-                                        .then(Commands.literal("reset").executes(StoryCommands::resetQuest))))
+                                        .then(Commands.literal("reset").executes(StoryCommands::resetQuest))
+                                        .then(Commands.literal("why").executes(StoryCommands::explainQuest))))
                         .then(Commands.literal("talk")
                                 .then(Commands.argument("id", StringArgumentType.string())
                                         .executes(StoryCommands::talk)))
@@ -163,6 +164,15 @@ public final class StoryCommands {
         boolean reset = Quests.reset(player, id);
         context.getSource().sendSuccess(() -> Component.literal("reset quest " + id + " = " + reset), true);
         return reset ? 1 : 0;
+    }
+
+    private static int explainQuest(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        ResourceLocation id = id(context, "id");
+        for (String line : Quests.explain(player, id)) {
+            context.getSource().sendSuccess(() -> Component.literal(line), false);
+        }
+        return 1;
     }
 
     private static int talk(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {        ServerPlayer player = context.getSource().getPlayerOrException();

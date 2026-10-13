@@ -26,7 +26,7 @@ repositories {
 }
 
 dependencies {
-    implementation "com.mornfire:sqdclib:1.0.1"
+    implementation "com.mornfire:sqdclib:1.0.2"
 }
 ```
 
@@ -277,6 +277,17 @@ public static void onPhase(StoryPhaseChangedEvent event) {
 | `on_complete` | 空 | 完成时执行 在写入完成状态之后 |
 | `on_fail` | 空 | 失败时执行 在写入失败状态之后 |
 
+每个目标自己的字段
+
+| 字段 | 默认 | 说明 |
+|---|---|---|
+| `id` | 必填 | 目标标识 |
+| `title` | 必填 | 显示文本 |
+| `done` | 必填 | 达成条件 |
+| `progress` | 无 | 进度来源 `{ "counter": "shards", "max": 5 }` |
+
+`progress` 只影响显示 不影响判定 判定永远看 `done` 想给玩家看 3/5 就在目标上写它 拿渲染结果读 `Quests.objectiveTitle(player, objective)` 没写 `progress` 的目标返回不带括号的原标题
+
 有个地方值得单独说 **目标没有 已完成 这个状态** 达成与否完全由 `done` 条件实时求值 这样条件和进度不可能对不上 不会出现 条件早就满足了但界面还显示未完成 的情况 代价是每 20 tick 要重新求值一遍 任务量大时可以考虑改成事件驱动
 
 `objectives` 为空的任务不会自动完成 得靠 `complete_quest` 或者代码显式结束
@@ -376,6 +387,7 @@ public static void onQuestDone(QuestCompletedEvent event) {
 | `next` | 无 | 没有可用选项时自动跳这里 |
 | `options` | 空 | 分支选项 |
 | `actions` | 空 | 进入节点时执行 |
+| `continue_text` | 无 | 填了就变成等玩家点击的节点 见下 |
 
 选项字段
 
@@ -389,6 +401,19 @@ public static void onQuestDone(QuestCompletedEvent event) {
 对话是服务端权威的 服务端持有会话 负责过滤选项 执行动作 推进节点 客户端只负责画和回传下标 **条件判断全在服务端做** 客户端连不满足条件的选项长什么样都不知道 也就无从伪造
 
 推进规则没什么花样 过滤完还有选项就显示 没选项但有 `next` 就自动跳 最多连跳 64 次 防 JSON 写出死循环 两个都没有就结束 对话期间游戏不暂停 玩家可以按 Esc 主动退出
+
+只有一句台词想让玩家看完再点一下 就在节点上写 `continue_text` 它会在没有可用选项时变成一个按钮 按下去走 `next` 这是对话里最常用的一种节点
+
+```json
+{
+  "speaker": { "text": "长老" },
+  "text": { "text": "……你听见了吗" },
+  "continue_text": { "text": "继续" },
+  "next": "after_noise"
+}
+```
+
+不写 `continue_text` 的话 `next` 是自动跳的 两种写法别混 要玩家停顿就用前者 要让流程自己往前走就用后者
 
 节点和选项的 actions 里如果写了 `play_cutscene` 加 `await` 对话会停在那句 等演出播完再往下走 用来做 说完这段演一段再回来 的场景 挂起期间玩家也不能操作
 
@@ -461,9 +486,14 @@ Dialogues.definition(player, dialogueId);
 | `duration` | 必填 | 总时长 |
 | `lock_movement` | `true` | 锁移动 跳跃 潜行 |
 | `letterbox` | `true` | 上下黑边 |
+| `skippable` | `false` | 允许按 Esc 跳过 |
 | `camera` | 空 | 留空就不接管相机 |
 | `events` | 空 | 时间轴事件 |
 | `credits` | 无 | 报幕 见下面单独一节 |
+
+`skippable` 打开之后 演出期间按 Esc 是跳过而不是暂停 跳过会把还没触发的 `actions` 按顺序全部补齐执行 再走正常的结束流程 所以挂在它后面的 `await` 对话照样会继续 奖励也不会因为跳过而丢
+
+没开 `skippable` 的演出按 Esc 就是普通的暂停菜单 关键剧情建议保持默认 报幕那种长段落可以打开
 
 相机关键帧里 `yaw` `pitch` `roll` `fov` 都可省 `fov` 默认 70 其余默认 0 缓动可填 `linear` `ease_in` `ease_out` `ease_in_out` 作用于**本帧到下一帧**这一段 `yaw` 走最短路径插值 所以 350 度到 10 度是往前转 20 度 不会倒着绕一大圈
 
@@ -532,6 +562,8 @@ data/<命名空间>/story_cutscene/<演出名>.json
 
 三类都是同步注册表 定义会自动下发到客户端 ID 由路径决定 `data/mypack/story_quest/first_relic.json` 就是 `sqdclib:first_relic`
 
+三个定义都可以写一个可选的 `schema` 字段 默认 1 当前也是 1 以后加了新字段会把版本提上去 旧版本遇到更高的 schema 会直接报错并跳过这个文件 而不是按缺省值解析出半个正确的结果 那种沉默的错最难查
+
 文本字段可以写完整的原版文本组件
 
 ```json
@@ -562,6 +594,7 @@ data/<命名空间>/story_cutscene/<演出名>.json
 | `/story counter <键> <数量>` | 增减计数器 |
 | `/story phase [阶段]` | 查询或设置剧情阶段 |
 | `/story quest <ID> [start\|complete\|fail\|abandon\|reset]` | 查询或改变任务状态 |
+| `/story quest <ID> why` | 逐条打印目标与失败条件为什么没过 |
 | `/story talk <ID>` | 开始对话 |
 | `/story cutscene <ID>` | 播放演出 |
 
@@ -589,6 +622,117 @@ StoryBridge.cutsceneStarter(Cutscenes::play);
 | 演出分支读取当前阶段 | 条件里写 `phase` |
 
 想加自己的动作类型 需要自己注册数据类型走桥 只是想在代码里驱动流程的话 直接调 `Quests` `Dialogues` `Cutscenes` 的静态方法就行
+
+---
+
+## API 速查
+
+状态层
+
+```java
+StoryProgress.of(player).setFlag("x")           // 返回是否真的变了
+StoryProgress.of(player).setFlag("x", false)
+StoryProgress.of(player).hasFlag("x")
+StoryProgress.of(player).getCounter("k")
+StoryProgress.of(player).setCounter("k", 3)     // 返回旧值
+StoryProgress.of(player).addCounter("k", 1)     // 返回新值
+StoryProgress.of(player).getFlags()
+StoryProgress.of(player).getCompletedQuests()
+StoryProgress.of(player).getActiveQuests()
+StoryProgress.of(player).getFailedQuests()
+
+WorldState.get(level)                           // 服务端与客户端都能这么拿
+WorldState.get(server)
+WorldState.get(level).setFlag("x")
+WorldState.get(level).hasFlag("x")
+WorldState.get(level).getPhase()
+WorldState.get(level).setPhase("chapter1")
+WorldState.get(level).isServerSide()
+
+Story.hasFlag(player, "x")                      // 玩家优先 没有再查世界
+Story.hasFlag(player, FlagScope.WORLD, "x")
+Story.setFlag(player, "x")
+Story.clearFlag(player, "x")
+Story.getCounter(player, "k")
+Story.setCounter(player, "k", 3)
+Story.addCounter(player, "k", 1)
+Story.completeQuest(player, id)
+Story.isQuestCompleted(player, id)
+```
+
+任务层
+
+```java
+Quests.status(player, id)                       // LOCKED / AVAILABLE / ACTIVE / COMPLETED / FAILED
+Quests.definition(player, id)                   // Optional<QuestDefinition>
+Quests.isVisible(player, id)                    // 该不该在任务书里显示
+Quests.hasPrerequisites(player, def)
+Quests.isReady(player, def)                     // 目标是否全达成
+Quests.isFailed(player, def)                    // fail_when 是否满足
+Quests.start(player, id)
+Quests.complete(player, id)
+Quests.fail(player, id)
+Quests.abandon(player, id)                      // 放下 回到可接取
+Quests.reset(player, id)                        // 清掉完成与失败记录
+Quests.refresh(player)                          // 手动跑一轮 返回状态有变的任务
+Quests.objectiveProgress(player, objective)     // Optional<Component> 形如 3/5
+Quests.objectiveTitle(player, objective)        // 标题带上进度
+Quests.explain(player, id)                      // List<String> 逐条说明为什么没过
+Quests.registry(player)
+```
+
+对话层
+
+```java
+Dialogues.start(player, id)
+Dialogues.select(player, index)
+Dialogues.stop(player)                          // 结束 清断点
+Dialogues.suspend(player)                       // 保留断点 只清内存会话
+Dialogues.resume(player)                        // 从断点接着聊
+Dialogues.isTalking(player)
+Dialogues.currentDialogue(player)
+Dialogues.availableOptions(player, node)
+Dialogues.definition(player, id)
+```
+
+演出层
+
+```java
+Cutscenes.play(player, id)
+Cutscenes.play(player, id, onFinish)            // 演完执行回调
+Cutscenes.playFor(players, id)                  // 给一组人播 返回开始了几场
+Cutscenes.playNear(anchor, radius, id)          // 给附近的人播
+Cutscenes.skip(player)                          // 补齐剩余 actions 后结束
+Cutscenes.stop(player)
+Cutscenes.isPlaying(player)
+Cutscenes.isSkippable(player)
+Cutscenes.currentCutscene(player)
+Cutscenes.definition(player, id)
+```
+
+条件与动作 写代码时也能直接用
+
+```java
+condition.test(player)                          // 求值
+condition.explain(player)                       // 人类可读的失败原因
+StoryAction.runAll(player, actions)
+StoryAction.runSequentially(player, actions, onComplete)   // 遇到 await 演出会挂起
+
+StoryBridge.dialogueStarter(...)
+StoryBridge.cutsceneStarter(...)
+StoryBridge.questStarter(...)
+StoryBridge.questCompleter(...)
+```
+
+---
+
+## 多人
+
+对话和演出都按玩家隔离 会话表键是玩家 UUID 两个玩家同时找同一个 NPC 各聊各的 互不干扰 同一个人身上也不会同时开两场 后来的顶掉先前的
+
+世界状态是全局的 一个人改了剧情阶段 所有人立刻看到 玩家状态是私有的 只推给本人
+
+想让一群人一起看同一场演出 用 `Cutscenes.playFor(players, id)` 按范围挑人就用 `playNear(anchor, radius, id)`
 
 ---
 

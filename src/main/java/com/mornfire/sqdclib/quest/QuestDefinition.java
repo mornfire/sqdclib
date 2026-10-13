@@ -1,6 +1,7 @@
 package com.mornfire.sqdclib.quest;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.mornfire.sqdclib.storystate.action.StoryAction;
 import com.mornfire.sqdclib.storystate.condition.StoryCondition;
@@ -11,6 +12,7 @@ import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.resources.ResourceLocation;
 
 public record QuestDefinition(
+        int schema,
         Component title,
         Optional<Component> description,
         QuestKind kind,
@@ -22,7 +24,10 @@ public record QuestDefinition(
         List<StoryAction> onComplete,
         List<StoryAction> onFail) {
 
-    public static final Codec<QuestDefinition> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+    public static final int CURRENT_SCHEMA = 1;
+
+    public static final Codec<QuestDefinition> CODEC = RecordCodecBuilder.<QuestDefinition>create(instance -> instance.group(
+            Codec.INT.optionalFieldOf("schema", CURRENT_SCHEMA).forGetter(QuestDefinition::schema),
             ComponentSerialization.CODEC.fieldOf("title").forGetter(QuestDefinition::title),
             ComponentSerialization.CODEC.optionalFieldOf("description").forGetter(QuestDefinition::description),
             QuestKind.CODEC.optionalFieldOf("kind", QuestKind.MAIN).forGetter(QuestDefinition::kind),
@@ -36,5 +41,14 @@ public record QuestDefinition(
             StoryAction.CODEC.listOf().optionalFieldOf("on_complete", List.of())
                     .forGetter(QuestDefinition::onComplete),
             StoryAction.CODEC.listOf().optionalFieldOf("on_fail", List.of()).forGetter(QuestDefinition::onFail))
-            .apply(instance, QuestDefinition::new));
+            .apply(instance, QuestDefinition::new))
+            .validate(QuestDefinition::validateSchema);
+
+    private static DataResult<QuestDefinition> validateSchema(QuestDefinition definition) {
+        if (definition.schema() > CURRENT_SCHEMA) {
+            return DataResult.error(() -> "quest schema " + definition.schema()
+                    + " is newer than this build supports (" + CURRENT_SCHEMA + ")");
+        }
+        return DataResult.success(definition);
+    }
 }

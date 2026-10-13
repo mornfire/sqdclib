@@ -4,12 +4,15 @@ import com.mornfire.sqdclib.SQDCLib;
 import com.mornfire.sqdclib.quest.event.QuestCompletedEvent;
 import com.mornfire.sqdclib.quest.event.QuestFailedEvent;
 import com.mornfire.sqdclib.quest.event.QuestStartedEvent;
+import com.mornfire.sqdclib.storystate.Story;
 import com.mornfire.sqdclib.storystate.StoryProgress;
 import com.mornfire.sqdclib.storystate.action.StoryAction;
+import com.mornfire.sqdclib.storystate.condition.StoryCondition;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.core.Registry;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -77,6 +80,49 @@ public final class Quests {
 
     public static boolean isFailed(Player player, QuestDefinition definition) {
         return definition.failWhen().isPresent() && definition.failWhen().get().test(player);
+    }
+
+    public static Optional<Component> objectiveProgress(Player player, QuestObjective objective) {
+        return objective.progress().map(spec -> {
+            int current = spec.current(Story.getCounter(player, spec.counter()));
+            return (Component) Component.literal(current + "/" + spec.max());
+        });
+    }
+
+    public static Component objectiveTitle(Player player, QuestObjective objective) {
+        Optional<Component> progress = objectiveProgress(player, objective);
+        if (progress.isEmpty()) {
+            return objective.title();
+        }
+        return Component.empty()
+                .append(objective.title())
+                .append(" (")
+                .append(progress.get())
+                .append(")");
+    }
+
+    public static List<String> explain(Player player, ResourceLocation quest) {
+        List<String> lines = new ArrayList<>();
+        Optional<QuestDefinition> definition = definition(player, quest);
+        if (definition.isEmpty()) {
+            lines.add("quest " + quest + " is not registered");
+            return lines;
+        }
+        QuestDefinition resolved = definition.get();
+        lines.add("schema=" + resolved.schema() + "  kind=" + resolved.kind().getSerializedName()
+                + "  status=" + (player instanceof ServerPlayer serverPlayer
+                        ? status(serverPlayer, quest).name()
+                        : "n/a"));
+        for (QuestObjective objective : resolved.objectives()) {
+            boolean done = objective.done().test(player);
+            lines.add("objective " + objective.id() + " [" + (done ? "ok" : "FAILED") + "] "
+                    + objective.done().explain(player));
+        }
+        if (resolved.failWhen().isPresent()) {
+            StoryCondition fail = resolved.failWhen().get();
+            lines.add("fail_when [" + (fail.test(player) ? "TRIGGERED" : "ok") + "] " + fail.explain(player));
+        }
+        return lines;
     }
 
     public static boolean start(ServerPlayer player, ResourceLocation quest) {

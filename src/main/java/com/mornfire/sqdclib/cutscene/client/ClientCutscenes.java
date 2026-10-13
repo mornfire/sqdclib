@@ -1,8 +1,10 @@
 package com.mornfire.sqdclib.cutscene.client;
 
 import com.mornfire.sqdclib.cutscene.CameraKeyframe;
+import com.mornfire.sqdclib.cutscene.CreditsRoll;
 import com.mornfire.sqdclib.cutscene.CutsceneDefinition;
 import com.mornfire.sqdclib.cutscene.CutsceneEvent;
+import com.mornfire.sqdclib.cutscene.Timeline;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +39,10 @@ public final class ClientCutscenes {
 
     public static boolean lockMovement() {
         return definition != null && definition.lockMovement();
+    }
+
+    public static boolean isSkippable() {
+        return definition != null && definition.skippable();
     }
 
     public static Optional<CutsceneDefinition.Credits> credits() {
@@ -107,15 +113,11 @@ public final class ClientCutscenes {
             return -1.0F;
         }
         CutsceneDefinition.Credits spec = definition.credits().get();
-        float elapsed = tick + partialTick - spec.start();
-        if (elapsed < 0.0F) {
+        float elapsed = tick + partialTick;
+        if (elapsed < spec.start()) {
             return -1.0F;
         }
-        if (spec.duration() <= 0) {
-            return 1.0F;
-        }
-        float progress = Mth.clamp(elapsed / spec.duration(), 0.0F, 1.0F);
-        return spec.speedUp() ? progress * progress : progress;
+        return CreditsRoll.progress(elapsed, spec.start(), spec.duration(), spec.speedUp());
     }
 
     public static CameraSample camera(float partialTick) {
@@ -143,27 +145,20 @@ public final class ClientCutscenes {
         if (frames.isEmpty()) {
             return null;
         }
-        if (frames.size() == 1 || time <= frames.get(0).time()) {
-            return exact(frames.get(0));
+        int[] times = new int[frames.size()];
+        for (int i = 0; i < frames.size(); i++) {
+            times[i] = frames.get(i).time();
         }
-        CameraKeyframe last = frames.get(frames.size() - 1);
-        if (time >= last.time()) {
-            return exact(last);
+        Timeline.Segment segment = Timeline.locate(times, time);
+        if (segment == null) {
+            return null;
         }
-        CameraKeyframe from = frames.get(0);
-        CameraKeyframe to = last;
-        for (int i = 0; i < frames.size() - 1; i++) {
-            CameraKeyframe a = frames.get(i);
-            CameraKeyframe b = frames.get(i + 1);
-            if (time >= a.time() && time <= b.time()) {
-                from = a;
-                to = b;
-                break;
-            }
+        CameraKeyframe from = frames.get(segment.from());
+        CameraKeyframe to = frames.get(segment.to());
+        if (from == to) {
+            return exact(from);
         }
-        float span = to.time() - from.time();
-        float progress = span <= 0.0F ? 1.0F : (time - from.time()) / span;
-        float eased = to.easing().apply(progress);
+        float eased = to.easing().apply(segment.progress());
         return new CameraSample(
                 from.position().lerp(to.position(), eased),
                 Mth.rotLerp(eased, from.yaw(), to.yaw()),

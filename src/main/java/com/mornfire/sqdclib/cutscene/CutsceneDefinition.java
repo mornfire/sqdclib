@@ -1,6 +1,7 @@
 package com.mornfire.sqdclib.cutscene;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.List;
 import java.util.Optional;
@@ -8,23 +9,38 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
 
 public record CutsceneDefinition(
+        int schema,
         int duration,
         boolean lockMovement,
         boolean letterbox,
+        boolean skippable,
         List<CameraKeyframe> camera,
         List<CutsceneEvent> events,
         Optional<Credits> credits) {
 
-    public static final Codec<CutsceneDefinition> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+    public static final int CURRENT_SCHEMA = 1;
+
+    public static final Codec<CutsceneDefinition> CODEC = RecordCodecBuilder.<CutsceneDefinition>create(instance -> instance.group(
+            Codec.INT.optionalFieldOf("schema", CURRENT_SCHEMA).forGetter(CutsceneDefinition::schema),
             Codec.INT.fieldOf("duration").forGetter(CutsceneDefinition::duration),
             Codec.BOOL.optionalFieldOf("lock_movement", true).forGetter(CutsceneDefinition::lockMovement),
             Codec.BOOL.optionalFieldOf("letterbox", true).forGetter(CutsceneDefinition::letterbox),
+            Codec.BOOL.optionalFieldOf("skippable", false).forGetter(CutsceneDefinition::skippable),
             CameraKeyframe.CODEC.listOf().optionalFieldOf("camera", List.of())
                     .forGetter(CutsceneDefinition::camera),
             CutsceneEvent.CODEC.listOf().optionalFieldOf("events", List.of())
                     .forGetter(CutsceneDefinition::events),
             Credits.CODEC.optionalFieldOf("credits").forGetter(CutsceneDefinition::credits))
-            .apply(instance, CutsceneDefinition::new));
+            .apply(instance, CutsceneDefinition::new))
+            .validate(CutsceneDefinition::validateSchema);
+
+    private static DataResult<CutsceneDefinition> validateSchema(CutsceneDefinition definition) {
+        if (definition.schema() > CURRENT_SCHEMA) {
+            return DataResult.error(() -> "cutscene schema " + definition.schema()
+                    + " is newer than this build supports (" + CURRENT_SCHEMA + ")");
+        }
+        return DataResult.success(definition);
+    }
 
     public record Credits(int start, int duration, boolean speedUp, List<Line> lines) {
         public static final Codec<Credits> CODEC = RecordCodecBuilder.create(instance -> instance.group(

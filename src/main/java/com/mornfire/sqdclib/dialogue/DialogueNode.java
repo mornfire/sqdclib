@@ -13,13 +13,24 @@ public record DialogueNode(
         Component text,
         Optional<String> next,
         List<DialogueOption> options,
-        List<StoryAction> actions) {
+        List<StoryAction> actions,
+        Optional<Component> continueText) {
 
     public static final Codec<DialogueNode> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             ComponentSerialization.CODEC.optionalFieldOf("speaker").forGetter(DialogueNode::speaker),
             ComponentSerialization.CODEC.fieldOf("text").forGetter(DialogueNode::text),
             Codec.STRING.optionalFieldOf("next").forGetter(DialogueNode::next),
             DialogueOption.CODEC.listOf().optionalFieldOf("options", List.of()).forGetter(DialogueNode::options),
-            StoryAction.CODEC.listOf().optionalFieldOf("actions", List.of()).forGetter(DialogueNode::actions))
+            StoryAction.CODEC.listOf().optionalFieldOf("actions", List.of()).forGetter(DialogueNode::actions),
+            ComponentSerialization.CODEC.optionalFieldOf("continue_text").forGetter(DialogueNode::continueText))
             .apply(instance, DialogueNode::new));
+
+    public DialogueOption continueOption() {
+        return new DialogueOption(continueText.orElseGet(() -> Component.literal("...")),
+                Optional.empty(), next, List.of());
+    }
+
+    public boolean waitsForClick() {
+        return continueText.isPresent() && next.isPresent();
+    }
 }

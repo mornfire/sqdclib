@@ -1,6 +1,7 @@
 package com.mornfire.sqdclib.cutscene.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mornfire.sqdclib.cutscene.CreditsRoll;
 import com.mornfire.sqdclib.cutscene.CutsceneDefinition;
 import java.util.List;
 import java.util.Optional;
@@ -68,15 +69,19 @@ public final class CutsceneOverlay {
         List<CutsceneDefinition.Credits.Line> lines = spec.get().lines();
         Font font = Minecraft.getInstance().font;
 
-        int totalHeight = 0;
-        for (CutsceneDefinition.Credits.Line line : lines) {
-            totalHeight += lineHeight(font, line) + line.gap();
+        int[] heights = new int[lines.size()];
+        int[] gaps = new int[lines.size()];
+        for (int i = 0; i < lines.size(); i++) {
+            heights[i] = lineHeight(font, lines.get(i));
+            gaps[i] = lines.get(i).gap();
         }
+        int totalHeight = CreditsRoll.contentHeight(heights, gaps);
 
-        int y = (int) (height - progress * (height + totalHeight));
+        int y = CreditsRoll.offset(progress, height, totalHeight);
         PoseStack pose = graphics.pose();
-        for (CutsceneDefinition.Credits.Line line : lines) {
-            int lineHeight = lineHeight(font, line);
+        for (int i = 0; i < lines.size(); i++) {
+            CutsceneDefinition.Credits.Line line = lines.get(i);
+            int lineHeight = heights[i];
             if (y + lineHeight >= 0 && y <= height) {
                 pose.pushPose();
                 pose.translate(width / 2.0F, y, 0.0F);
@@ -84,7 +89,7 @@ public final class CutsceneOverlay {
                 graphics.drawCenteredString(font, line.text(), 0, 0, line.color().orElse(CREDIT_COLOR));
                 pose.popPose();
             }
-            y += lineHeight + line.gap();
+            y += lineHeight + gaps[i];
         }
     }
 

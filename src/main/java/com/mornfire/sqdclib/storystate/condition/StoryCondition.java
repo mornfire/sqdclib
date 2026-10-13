@@ -16,6 +16,8 @@ public sealed interface StoryCondition {
 
     String type();
 
+    String explain(Player player);
+
     Codec<StoryCondition> CODEC = Codec.recursive("StoryCondition", StoryCondition::buildCodec);
 
     private static Codec<StoryCondition> buildCodec(Codec<StoryCondition> self) {
@@ -54,6 +56,12 @@ public sealed interface StoryCondition {
         public String type() {
             return TYPE;
         }
+
+        @Override
+        public String explain(Player player) {
+            return "flag \"" + flag + "\" (" + scope.getSerializedName() + ") is "
+                    + Story.hasFlag(player, scope, flag) + ", expected " + value;
+        }
     }
 
     record Quest(ResourceLocation quest) implements StoryCondition {
@@ -73,6 +81,11 @@ public sealed interface StoryCondition {
         @Override
         public String type() {
             return TYPE;
+        }
+
+        @Override
+        public String explain(Player player) {
+            return "quest " + quest + " completed=" + Story.isQuestCompleted(player, quest);
         }
     }
 
@@ -95,6 +108,11 @@ public sealed interface StoryCondition {
         public String type() {
             return TYPE;
         }
+
+        @Override
+        public String explain(Player player) {
+            return "counter \"" + key + "\" is " + Story.getCounter(player, key) + ", need >= " + atLeast;
+        }
     }
 
     record Phase(String phase) implements StoryCondition {
@@ -115,6 +133,11 @@ public sealed interface StoryCondition {
         public String type() {
             return TYPE;
         }
+
+        @Override
+        public String explain(Player player) {
+            return "phase is \"" + WorldState.get(player.level()).getPhase() + "\", expected \"" + phase + "\"";
+        }
     }
 
     record Negate(StoryCondition value) implements StoryCondition {
@@ -134,6 +157,11 @@ public sealed interface StoryCondition {
         @Override
         public String type() {
             return TYPE;
+        }
+
+        @Override
+        public String explain(Player player) {
+            return "not( " + value.explain(player) + " )";
         }
     }
 
@@ -160,6 +188,23 @@ public sealed interface StoryCondition {
         public String type() {
             return TYPE;
         }
+
+        @Override
+        public String explain(Player player) {
+            StringBuilder builder = new StringBuilder("all(");
+            for (int i = 0; i < values.size(); i++) {
+                if (i > 0) {
+                    builder.append(", ");
+                }
+                StoryCondition condition = values.get(i);
+                boolean ok = condition.test(player);
+                builder.append(i).append(':').append(ok ? "ok" : "fail");
+                if (!ok) {
+                    builder.append(" [").append(condition.explain(player)).append(']');
+                }
+            }
+            return builder.append(')').toString();
+        }
     }
 
     record Any(List<StoryCondition> values) implements StoryCondition {
@@ -184,6 +229,23 @@ public sealed interface StoryCondition {
         @Override
         public String type() {
             return TYPE;
+        }
+
+        @Override
+        public String explain(Player player) {
+            StringBuilder builder = new StringBuilder("any(");
+            for (int i = 0; i < values.size(); i++) {
+                if (i > 0) {
+                    builder.append(", ");
+                }
+                StoryCondition condition = values.get(i);
+                boolean ok = condition.test(player);
+                builder.append(i).append(':').append(ok ? "ok" : "fail");
+                if (!ok) {
+                    builder.append(" [").append(condition.explain(player)).append(']');
+                }
+            }
+            return builder.append(')').toString();
         }
     }
 }

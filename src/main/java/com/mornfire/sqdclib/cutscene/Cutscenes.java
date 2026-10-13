@@ -6,6 +6,7 @@ import com.mornfire.sqdclib.cutscene.net.CutsceneStartPayload;
 import com.mornfire.sqdclib.cutscene.net.CutsceneStopPayload;
 import com.mornfire.sqdclib.storystate.action.StoryAction;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -56,6 +57,11 @@ public final class Cutscenes {
         return SESSIONS.containsKey(player.getUUID());
     }
 
+    public static boolean isSkippable(ServerPlayer player) {
+        Session session = SESSIONS.get(player.getUUID());
+        return session != null && session.definition.skippable();
+    }
+
     public static ResourceLocation currentCutscene(ServerPlayer player) {
         Session session = SESSIONS.get(player.getUUID());
         return session == null ? null : session.cutscene;
@@ -79,6 +85,28 @@ public final class Cutscenes {
         return true;
     }
 
+    public static int playFor(Collection<ServerPlayer> players, ResourceLocation cutscene) {
+        int started = 0;
+        for (ServerPlayer player : players) {
+            if (play(player, cutscene)) {
+                started++;
+            }
+        }
+        return started;
+    }
+
+    public static int playNear(ServerPlayer anchor, double radius, ResourceLocation cutscene) {
+        double limit = radius * radius;
+        List<ServerPlayer> nearby = new ArrayList<>();
+        for (ServerPlayer candidate : anchor.serverLevel().getServer().getPlayerList().getPlayers()) {
+            if (candidate == anchor
+                    || candidate.level() == anchor.level() && candidate.distanceToSqr(anchor) <= limit) {
+                nearby.add(candidate);
+            }
+        }
+        return playFor(nearby, cutscene);
+    }
+
     public static void tick(ServerPlayer player) {
         Session session = SESSIONS.get(player.getUUID());
         if (session == null) {
@@ -95,6 +123,21 @@ public final class Cutscenes {
         if (session.tick >= session.definition.duration()) {
             finish(player, session);
         }
+    }
+
+    public static boolean skip(ServerPlayer player) {
+        Session session = SESSIONS.get(player.getUUID());
+        if (session == null || !session.definition.skippable()) {
+            return false;
+        }
+        List<CutsceneEvent> events = session.definition.events();
+        for (int i = 0; i < events.size(); i++) {
+            if (session.fired.add(i)) {
+                StoryAction.runAll(player, events.get(i).actions());
+            }
+        }
+        finish(player, session);
+        return true;
     }
 
     public static void stop(ServerPlayer player) {
