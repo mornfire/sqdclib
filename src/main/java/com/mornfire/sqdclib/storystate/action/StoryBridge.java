@@ -5,8 +5,13 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 
 public final class StoryBridge {
+    @FunctionalInterface
+    public interface CutsceneRunner {
+        boolean play(ServerPlayer player, ResourceLocation cutscene, Runnable onFinish);
+    }
+
     private static BiConsumer<ServerPlayer, ResourceLocation> dialogueStarter = (player, id) -> {};
-    private static BiConsumer<ServerPlayer, ResourceLocation> cutsceneStarter = (player, id) -> {};
+    private static CutsceneRunner cutsceneStarter = (player, id, onFinish) -> false;
     private static BiConsumer<ServerPlayer, ResourceLocation> questStarter = (player, id) -> {};
     private static BiConsumer<ServerPlayer, ResourceLocation> questCompleter = (player, id) -> {};
 
@@ -14,7 +19,7 @@ public final class StoryBridge {
         dialogueStarter = handler;
     }
 
-    public static void cutsceneStarter(BiConsumer<ServerPlayer, ResourceLocation> handler) {
+    public static void cutsceneStarter(CutsceneRunner handler) {
         cutsceneStarter = handler;
     }
 
@@ -31,7 +36,11 @@ public final class StoryBridge {
     }
 
     public static void playCutscene(ServerPlayer player, ResourceLocation cutscene) {
-        cutsceneStarter.accept(player, cutscene);
+        cutsceneStarter.play(player, cutscene, () -> {});
+    }
+
+    public static boolean playCutscene(ServerPlayer player, ResourceLocation cutscene, Runnable onFinish) {
+        return cutsceneStarter.play(player, cutscene, onFinish);
     }
 
     public static void startQuest(ServerPlayer player, ResourceLocation quest) {

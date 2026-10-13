@@ -1,5 +1,5 @@
 {
-  "duration": 160,
+  "duration": 720,
   "lock_movement": true,
   "letterbox": true,
   "camera": [
@@ -44,24 +44,37 @@
       }
     },
     {
+      "time": 8,
+      "sound": {
+        "sound": "minecraft:block.beacon.activate",
+        "volume": 0.8,
+        "pitch": 1.0
+      }
+    },
+    {
       "time": 25,
       "text": {
-        "text": "碎片在你掌中苏醒。"
+        "text": "碎片在你掌中苏醒"
       },
       "duration": 55
     },
     {
       "time": 90,
       "text": {
-        "text": "它指向了北方。"
+        "text": "它指向了北方"
       },
-      "duration": 45
+      "duration": 45,
+      "sound": {
+        "sound": "minecraft:block.note_block.bell",
+        "volume": 1.0,
+        "pitch": 0.8
+      }
     },
     {
       "time": 150,
       "fade": {
         "to": 1.0,
-        "ticks": 10
+        "ticks": 20
       }
     },
     {
@@ -73,5 +86,37 @@
         }
       ]
     }
-  ]
+  ],
+  "credits": {
+    "start": 175,
+    "duration": 500,
+    "speed_up": true,
+    "lines": [
+      {
+        "text": "SQDCLib",
+        "scale": 2.0,
+        "gap": 30,
+        "color": 16764057
+      },
+      {
+        "text": "叙事前置库",
+        "gap": 40
+      },
+      {
+        "text": "状态层  任务层  对话层  演出层",
+        "gap": 60
+      },
+      {
+        "text": "SQDCLib 1.0.1",
+        "gap": 10,
+        "color": 11184810
+      },
+      {
+        "text": "感谢游玩",
+        "scale": 1.5,
+        "gap": 0,
+        "color": 16764057
+      }
+    ]
+  }
 }

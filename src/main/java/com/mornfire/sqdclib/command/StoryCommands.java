@@ -49,7 +49,10 @@ public final class StoryCommands {
                                         .executes(StoryCommands::reportQuest)
                                         .then(Commands.literal("start").executes(StoryCommands::startQuest))
                                         .then(Commands.literal("complete")
-                                                .executes(StoryCommands::completeQuest))))
+                                                .executes(StoryCommands::completeQuest))
+                                        .then(Commands.literal("fail").executes(StoryCommands::failQuest))
+                                        .then(Commands.literal("abandon").executes(StoryCommands::abandonQuest))
+                                        .then(Commands.literal("reset").executes(StoryCommands::resetQuest))))
                         .then(Commands.literal("talk")
                                 .then(Commands.argument("id", StringArgumentType.string())
                                         .executes(StoryCommands::talk)))
@@ -138,8 +141,31 @@ public final class StoryCommands {
         return completed ? 1 : 0;
     }
 
-    private static int talk(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+    private static int failQuest(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
+        ResourceLocation id = id(context, "id");
+        boolean failed = Quests.fail(player, id);
+        context.getSource().sendSuccess(() -> Component.literal("fail quest " + id + " = " + failed), true);
+        return failed ? 1 : 0;
+    }
+
+    private static int abandonQuest(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        ResourceLocation id = id(context, "id");
+        boolean abandoned = Quests.abandon(player, id);
+        context.getSource().sendSuccess(() -> Component.literal("abandon quest " + id + " = " + abandoned), true);
+        return abandoned ? 1 : 0;
+    }
+
+    private static int resetQuest(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        ResourceLocation id = id(context, "id");
+        boolean reset = Quests.reset(player, id);
+        context.getSource().sendSuccess(() -> Component.literal("reset quest " + id + " = " + reset), true);
+        return reset ? 1 : 0;
+    }
+
+    private static int talk(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {        ServerPlayer player = context.getSource().getPlayerOrException();
         ResourceLocation id = id(context, "id");
         boolean started = Dialogues.start(player, id);
         context.getSource().sendSuccess(() -> Component.literal("dialogue " + id + " = " + started), true);

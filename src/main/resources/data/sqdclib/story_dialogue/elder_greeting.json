@@ -1,5 +1,6 @@
 {
   "start": "greet",
+  "lock_movement": true,
   "nodes": {
     "greet": {
       "speaker": {
@@ -100,7 +101,8 @@
       "actions": [
         {
           "type": "play_cutscene",
-          "cutscene": "sqdclib:relic_reveal"
+          "cutscene": "sqdclib:relic_reveal",
+          "await": true
         }
       ],
       "options": [

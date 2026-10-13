@@ -1,7 +1,7 @@
 package com.mornfire.sqdclib.cutscene.client;
 
 import com.mornfire.sqdclib.SQDCLib;
-import net.minecraft.client.player.Input;
+import com.mornfire.sqdclib.client.ClientInputLock;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -20,18 +20,9 @@ public final class CutsceneClientEvents {
 
     @SubscribeEvent
     public static void onMovementInput(MovementInputUpdateEvent event) {
-        if (!ClientCutscenes.lockMovement()) {
-            return;
+        if (ClientCutscenes.lockMovement()) {
+            ClientInputLock.clear(event.getInput());
         }
-        Input input = event.getInput();
-        input.forwardImpulse = 0.0F;
-        input.leftImpulse = 0.0F;
-        input.up = false;
-        input.down = false;
-        input.left = false;
-        input.right = false;
-        input.jumping = false;
-        input.shiftKeyDown = false;
     }
 
     @SubscribeEvent

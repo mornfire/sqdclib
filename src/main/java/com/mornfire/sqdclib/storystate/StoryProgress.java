@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -19,8 +20,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.attachment.AttachmentSyncHandler;
 import net.neoforged.neoforge.attachment.IAttachmentHolder;
-import net.neoforged.neoforge.common.util.INBTSerializable;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.common.util.INBTSerializable;
 import org.jetbrains.annotations.Nullable;
 
 public final class StoryProgress implements INBTSerializable<CompoundTag> {
@@ -28,6 +29,9 @@ public final class StoryProgress implements INBTSerializable<CompoundTag> {
     private static final String COUNTERS_KEY = "counters";
     private static final String QUESTS_KEY = "quests";
     private static final String ACTIVE_KEY = "active_quests";
+    private static final String FAILED_KEY = "failed_quests";
+    private static final String DIALOGUE_KEY = "dialogue";
+    private static final String DIALOGUE_NODE_KEY = "dialogue_node";
 
     public static final AttachmentSyncHandler<StoryProgress> SYNC_HANDLER = new AttachmentSyncHandler<>() {
         @Override
@@ -55,6 +59,10 @@ public final class StoryProgress implements INBTSerializable<CompoundTag> {
     private final Map<String, Integer> counters = new HashMap<>();
     private final Set<ResourceLocation> completedQuests = new HashSet<>();
     private final Set<ResourceLocation> activeQuests = new HashSet<>();
+    private final Set<ResourceLocation> failedQuests = new HashSet<>();
+    @Nullable
+    private ResourceLocation dialogue;
+    private String dialogueNode = "";
 
     public StoryProgress(@Nullable Player owner) {
         this.owner = owner;
@@ -135,10 +143,6 @@ public final class StoryProgress implements INBTSerializable<CompoundTag> {
         return changed;
     }
 
-    public Set<String> getFlags() {
-        return Collections.unmodifiableSet(flags);
-    }
-
     public boolean isQuestActive(ResourceLocation quest) {
         return activeQuests.contains(quest);
     }
@@ -159,12 +163,68 @@ public final class StoryProgress implements INBTSerializable<CompoundTag> {
         return changed;
     }
 
-    public Set<ResourceLocation> getActiveQuests() {
-        return Collections.unmodifiableSet(activeQuests);
+    public boolean hasFailedQuest(ResourceLocation quest) {
+        return failedQuests.contains(quest);
+    }
+
+    public boolean failQuest(ResourceLocation quest) {
+        boolean changed = failedQuests.add(quest);
+        if (changed) {
+            afterChange();
+        }
+        return changed;
+    }
+
+    public boolean clearFailedQuest(ResourceLocation quest) {
+        boolean changed = failedQuests.remove(quest);
+        if (changed) {
+            afterChange();
+        }
+        return changed;
+    }
+
+    public Optional<ResourceLocation> getDialogue() {
+        return Optional.ofNullable(dialogue);
+    }
+
+    public String getDialogueNode() {
+        return dialogueNode;
+    }
+
+    public boolean setDialogue(ResourceLocation dialogue, String node) {
+        if (dialogue.equals(this.dialogue) && node.equals(this.dialogueNode)) {
+            return false;
+        }
+        this.dialogue = dialogue;
+        this.dialogueNode = node;
+        afterChange();
+        return true;
+    }
+
+    public boolean clearDialogue() {
+        if (dialogue == null && dialogueNode.isEmpty()) {
+            return false;
+        }
+        this.dialogue = null;
+        this.dialogueNode = "";
+        afterChange();
+        return true;
+    }
+
+    public Set<String> getFlags() {
+        return Collections.unmodifiableSet(flags);
     }
 
     public Set<ResourceLocation> getCompletedQuests() {
         return Collections.unmodifiableSet(completedQuests);
+    }
+
+    public Set<ResourceLocation> getActiveQuests() {
+        return Collections.unmodifiableSet(activeQuests);
+    }
+
+    public Set<ResourceLocation> getFailedQuests() {
+        return Collections.unmodifiableSet(failedQuests);
     }
 
     @Override
@@ -190,17 +250,14 @@ public final class StoryProgress implements INBTSerializable<CompoundTag> {
         counters.forEach(counterTag::putInt);
         tag.put(COUNTERS_KEY, counterTag);
 
-        ListTag questList = new ListTag();
-        for (ResourceLocation quest : completedQuests) {
-            questList.add(StringTag.valueOf(quest.toString()));
-        }
-        tag.put(QUESTS_KEY, questList);
+        tag.put(QUESTS_KEY, questList(completedQuests));
+        tag.put(ACTIVE_KEY, questList(activeQuests));
+        tag.put(FAILED_KEY, questList(failedQuests));
 
-        ListTag activeList = new ListTag();
-        for (ResourceLocation quest : activeQuests) {
-            activeList.add(StringTag.valueOf(quest.toString()));
+        if (dialogue != null) {
+            tag.putString(DIALOGUE_KEY, dialogue.toString());
+            tag.putString(DIALOGUE_NODE_KEY, dialogueNode);
         }
-        tag.put(ACTIVE_KEY, activeList);
 
         return tag;
     }
@@ -210,6 +267,7 @@ public final class StoryProgress implements INBTSerializable<CompoundTag> {
         counters.clear();
         completedQuests.clear();
         activeQuests.clear();
+        failedQuests.clear();
 
         ListTag flagList = tag.getList(FLAGS_KEY, Tag.TAG_STRING);
         for (int i = 0; i < flagList.size(); i++) {
@@ -221,14 +279,25 @@ public final class StoryProgress implements INBTSerializable<CompoundTag> {
             counters.put(key, counterTag.getInt(key));
         }
 
-        ListTag questList = tag.getList(QUESTS_KEY, Tag.TAG_STRING);
-        for (int i = 0; i < questList.size(); i++) {
-            completedQuests.add(ResourceLocation.parse(questList.getString(i)));
-        }
+        readQuests(tag.getList(QUESTS_KEY, Tag.TAG_STRING), completedQuests);
+        readQuests(tag.getList(ACTIVE_KEY, Tag.TAG_STRING), activeQuests);
+        readQuests(tag.getList(FAILED_KEY, Tag.TAG_STRING), failedQuests);
 
-        ListTag activeList = tag.getList(ACTIVE_KEY, Tag.TAG_STRING);
-        for (int i = 0; i < activeList.size(); i++) {
-            activeQuests.add(ResourceLocation.parse(activeList.getString(i)));
+        dialogue = tag.contains(DIALOGUE_KEY) ? ResourceLocation.parse(tag.getString(DIALOGUE_KEY)) : null;
+        dialogueNode = tag.getString(DIALOGUE_NODE_KEY);
+    }
+
+    private static ListTag questList(Set<ResourceLocation> quests) {
+        ListTag list = new ListTag();
+        for (ResourceLocation quest : quests) {
+            list.add(StringTag.valueOf(quest.toString()));
+        }
+        return list;
+    }
+
+    private static void readQuests(ListTag list, Set<ResourceLocation> target) {
+        for (int i = 0; i < list.size(); i++) {
+            target.add(ResourceLocation.parse(list.getString(i)));
         }
     }
 

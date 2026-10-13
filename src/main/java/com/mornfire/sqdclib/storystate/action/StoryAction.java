@@ -25,6 +25,26 @@ public sealed interface StoryAction {
         }
     }
 
+    static void runSequentially(ServerPlayer player, List<StoryAction> actions, Runnable onComplete) {
+        runFrom(player, actions, 0, onComplete);
+    }
+
+    private static void runFrom(ServerPlayer player, List<StoryAction> actions, int index, Runnable onComplete) {
+        for (int i = index; i < actions.size(); i++) {
+            StoryAction action = actions.get(i);
+            if (action instanceof PlayCutscene play && play.await()) {
+                int resume = i + 1;
+                if (StoryBridge.playCutscene(player, play.cutscene(),
+                        () -> runFrom(player, actions, resume, onComplete))) {
+                    return;
+                }
+                continue;
+            }
+            action.run(player);
+        }
+        onComplete.run();
+    }
+
     private static Codec<StoryAction> buildCodec(Codec<StoryAction> self) {
         return Codec.STRING.partialDispatch(
                 "type",
@@ -190,12 +210,13 @@ public sealed interface StoryAction {
         }
     }
 
-    record PlayCutscene(ResourceLocation cutscene) implements StoryAction {
+    record PlayCutscene(ResourceLocation cutscene, boolean await) implements StoryAction {
         public static final String TYPE = "play_cutscene";
 
         public static MapCodec<PlayCutscene> codec() {
             return RecordCodecBuilder.mapCodec(instance -> instance.group(
-                    ResourceLocation.CODEC.fieldOf("cutscene").forGetter(PlayCutscene::cutscene))
+                    ResourceLocation.CODEC.fieldOf("cutscene").forGetter(PlayCutscene::cutscene),
+                    Codec.BOOL.optionalFieldOf("await", false).forGetter(PlayCutscene::await))
                     .apply(instance, PlayCutscene::new));
         }
 

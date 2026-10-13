@@ -1,6 +1,9 @@
 package com.mornfire.sqdclib.cutscene.client;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mornfire.sqdclib.cutscene.CutsceneDefinition;
 import java.util.List;
+import java.util.Optional;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -13,6 +16,7 @@ public final class CutsceneOverlay {
     private static final int TEXT_COLOR = 0xFFFFFFFF;
     private static final int TEXT_SPACING = 14;
     private static final int TEXT_BOTTOM_PADDING = 24;
+    private static final int CREDIT_COLOR = 0xFFFFFF;
 
     public static void render(GuiGraphics graphics, DeltaTracker deltaTracker) {
         if (!ClientCutscenes.isPlaying()) {
@@ -28,21 +32,64 @@ public final class CutsceneOverlay {
             graphics.fill(0, height - bar, width, height, 0xFF000000);
         }
 
-        List<Component> texts = ClientCutscenes.activeTexts();
-        if (!texts.isEmpty()) {
-            Font font = Minecraft.getInstance().font;
-            int textY = height - bar - TEXT_BOTTOM_PADDING;
-            for (Component text : texts) {
-                graphics.drawCenteredString(font, text, width / 2, textY, TEXT_COLOR);
-                textY -= TEXT_SPACING;
-            }
-        }
+        renderTexts(graphics, width, height, bar);
 
         float fade = ClientCutscenes.fade(partialTick);
         if (fade > 0.001F) {
             int alpha = (int) (Mth.clamp(fade, 0.0F, 1.0F) * 255.0F);
             graphics.fill(0, 0, width, height, alpha << 24);
         }
+
+        renderCredits(graphics, partialTick, width, height);
+    }
+
+    private static void renderTexts(GuiGraphics graphics, int width, int height, int bar) {
+        List<Component> texts = ClientCutscenes.activeTexts();
+        if (texts.isEmpty()) {
+            return;
+        }
+        Font font = Minecraft.getInstance().font;
+        int textY = height - bar - TEXT_BOTTOM_PADDING;
+        for (Component text : texts) {
+            graphics.drawCenteredString(font, text, width / 2, textY, TEXT_COLOR);
+            textY -= TEXT_SPACING;
+        }
+    }
+
+    private static void renderCredits(GuiGraphics graphics, float partialTick, int width, int height) {
+        float progress = ClientCutscenes.creditsProgress(partialTick);
+        if (progress < 0.0F) {
+            return;
+        }
+        Optional<CutsceneDefinition.Credits> spec = ClientCutscenes.credits();
+        if (spec.isEmpty() || spec.get().lines().isEmpty()) {
+            return;
+        }
+        List<CutsceneDefinition.Credits.Line> lines = spec.get().lines();
+        Font font = Minecraft.getInstance().font;
+
+        int totalHeight = 0;
+        for (CutsceneDefinition.Credits.Line line : lines) {
+            totalHeight += lineHeight(font, line) + line.gap();
+        }
+
+        int y = (int) (height - progress * (height + totalHeight));
+        PoseStack pose = graphics.pose();
+        for (CutsceneDefinition.Credits.Line line : lines) {
+            int lineHeight = lineHeight(font, line);
+            if (y + lineHeight >= 0 && y <= height) {
+                pose.pushPose();
+                pose.translate(width / 2.0F, y, 0.0F);
+                pose.scale(line.scale(), line.scale(), 1.0F);
+                graphics.drawCenteredString(font, line.text(), 0, 0, line.color().orElse(CREDIT_COLOR));
+                pose.popPose();
+            }
+            y += lineHeight + line.gap();
+        }
+    }
+
+    private static int lineHeight(Font font, CutsceneDefinition.Credits.Line line) {
+        return (int) (font.lineHeight * line.scale());
     }
 
     private CutsceneOverlay() {}

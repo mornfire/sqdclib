@@ -1,9 +1,11 @@
 package com.mornfire.sqdclib.cutscene;
 
 import com.mornfire.sqdclib.SQDCLib;
+import com.mornfire.sqdclib.cutscene.event.CutsceneFinishedEvent;
 import com.mornfire.sqdclib.cutscene.net.CutsceneStartPayload;
 import com.mornfire.sqdclib.cutscene.net.CutsceneStopPayload;
 import com.mornfire.sqdclib.storystate.action.StoryAction;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -16,7 +18,9 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.PacketDistributor;
+import org.jetbrains.annotations.Nullable;
 
 public final class Cutscenes {
     public static final ResourceKey<Registry<CutsceneDefinition>> REGISTRY_KEY =
@@ -28,11 +32,15 @@ public final class Cutscenes {
         private final ResourceLocation cutscene;
         private final CutsceneDefinition definition;
         private final Set<Integer> fired = new HashSet<>();
+        private final List<Runnable> finishers = new ArrayList<>();
         private int tick;
 
-        private Session(ResourceLocation cutscene, CutsceneDefinition definition) {
+        private Session(ResourceLocation cutscene, CutsceneDefinition definition, @Nullable Runnable onFinish) {
             this.cutscene = cutscene;
             this.definition = definition;
+            if (onFinish != null) {
+                this.finishers.add(onFinish);
+            }
         }
     }
 
@@ -54,11 +62,19 @@ public final class Cutscenes {
     }
 
     public static boolean play(ServerPlayer player, ResourceLocation cutscene) {
+        return play(player, cutscene, null);
+    }
+
+    public static boolean play(ServerPlayer player, ResourceLocation cutscene, @Nullable Runnable onFinish) {
         Optional<CutsceneDefinition> definition = definition(player, cutscene);
         if (definition.isEmpty()) {
             return false;
         }
-        SESSIONS.put(player.getUUID(), new Session(cutscene, definition.get()));
+        Session previous = SESSIONS.get(player.getUUID());
+        if (previous != null) {
+            PacketDistributor.sendToPlayer(player, new CutsceneStopPayload());
+        }
+        SESSIONS.put(player.getUUID(), new Session(cutscene, definition.get(), onFinish));
         PacketDistributor.sendToPlayer(player, new CutsceneStartPayload(definition.get()));
         return true;
     }
@@ -77,13 +93,25 @@ public final class Cutscenes {
             }
         }
         if (session.tick >= session.definition.duration()) {
-            stop(player);
+            finish(player, session);
         }
     }
 
     public static void stop(ServerPlayer player) {
-        if (SESSIONS.remove(player.getUUID()) != null) {
-            PacketDistributor.sendToPlayer(player, new CutsceneStopPayload());
+        Session session = SESSIONS.get(player.getUUID());
+        if (session != null) {
+            finish(player, session);
+        }
+    }
+
+    private static void finish(ServerPlayer player, Session session) {
+        if (SESSIONS.remove(player.getUUID()) == null) {
+            return;
+        }
+        PacketDistributor.sendToPlayer(player, new CutsceneStopPayload());
+        NeoForge.EVENT_BUS.post(new CutsceneFinishedEvent(player, session.cutscene));
+        for (Runnable finisher : session.finishers) {
+            finisher.run();
         }
     }
 

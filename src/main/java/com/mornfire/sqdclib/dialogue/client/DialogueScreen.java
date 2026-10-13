@@ -103,7 +103,7 @@ public class DialogueScreen extends Screen {
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
             PacketDistributor.sendToServer(new DialogueSelectPayload(Dialogues.CLOSE_INDEX));
-            this.minecraft.setScreen(null);
+            ClientDialogues.close();
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);

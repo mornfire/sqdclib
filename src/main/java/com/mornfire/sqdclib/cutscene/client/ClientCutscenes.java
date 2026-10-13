@@ -5,7 +5,10 @@ import com.mornfire.sqdclib.cutscene.CutsceneDefinition;
 import com.mornfire.sqdclib.cutscene.CutsceneEvent;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
@@ -34,6 +37,10 @@ public final class ClientCutscenes {
 
     public static boolean lockMovement() {
         return definition != null && definition.lockMovement();
+    }
+
+    public static Optional<CutsceneDefinition.Credits> credits() {
+        return definition == null ? Optional.empty() : definition.credits();
     }
 
     public static void start(CutsceneDefinition cutscene) {
@@ -72,6 +79,7 @@ public final class ClientCutscenes {
                 fadeTicks = fade.ticks();
                 fadeElapsed = 0;
             });
+            event.sound().ifPresent(ClientCutscenes::playCue);
         }
         TEXTS.removeIf(text -> tick >= text.endTick());
         if (fadeElapsed < fadeTicks) {
@@ -94,6 +102,22 @@ public final class ClientCutscenes {
         return Mth.lerp(progress, fadeFrom, fadeTo);
     }
 
+    public static float creditsProgress(float partialTick) {
+        if (definition == null || definition.credits().isEmpty()) {
+            return -1.0F;
+        }
+        CutsceneDefinition.Credits spec = definition.credits().get();
+        float elapsed = tick + partialTick - spec.start();
+        if (elapsed < 0.0F) {
+            return -1.0F;
+        }
+        if (spec.duration() <= 0) {
+            return 1.0F;
+        }
+        float progress = Mth.clamp(elapsed / spec.duration(), 0.0F, 1.0F);
+        return spec.speedUp() ? progress * progress : progress;
+    }
+
     public static CameraSample camera(float partialTick) {
         if (definition == null) {
             return null;
@@ -108,6 +132,11 @@ public final class ClientCutscenes {
         }
         camera.setPosition(sample.position());
         camera.setRotation(sample.yaw(), sample.pitch(), sample.roll());
+    }
+
+    private static void playCue(CutsceneEvent.SoundCue cue) {
+        Minecraft.getInstance().getSoundManager().play(
+                SimpleSoundInstance.forUI(cue.sound().value(), cue.pitch(), cue.volume()));
     }
 
     private static CameraSample sample(List<CameraKeyframe> frames, float time) {

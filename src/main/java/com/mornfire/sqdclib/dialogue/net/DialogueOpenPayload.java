@@ -18,7 +18,8 @@ public record DialogueOpenPayload(
         String node,
         Optional<Component> speaker,
         Component text,
-        List<Component> options) implements CustomPacketPayload {
+        List<Component> options,
+        boolean lockMovement) implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<DialogueOpenPayload> TYPE =
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(SQDCLib.MOD_ID, "dialogue_open"));
@@ -29,6 +30,7 @@ public record DialogueOpenPayload(
             ComponentSerialization.OPTIONAL_STREAM_CODEC, DialogueOpenPayload::speaker,
             ComponentSerialization.STREAM_CODEC, DialogueOpenPayload::text,
             ComponentSerialization.STREAM_CODEC.apply(ByteBufCodecs.list()), DialogueOpenPayload::options,
+            ByteBufCodecs.BOOL, DialogueOpenPayload::lockMovement,
             DialogueOpenPayload::new);
 
     @Override

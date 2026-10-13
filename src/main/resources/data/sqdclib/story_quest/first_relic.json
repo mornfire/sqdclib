@@ -3,7 +3,7 @@
     "text": "第一件遗物"
   },
   "description": {
-    "text": "收集三块散落的碎片。"
+    "text": "收集三块散落的碎片"
   },
   "kind": "main",
   "prerequisites": [
@@ -26,6 +26,10 @@
       }
     }
   ],
+  "fail_when": {
+    "type": "flag",
+    "flag": "elder_died"
+  },
   "on_start": [
     {
       "type": "set_flag",
@@ -40,6 +44,12 @@
     {
       "type": "play_cutscene",
       "cutscene": "sqdclib:relic_reveal"
+    }
+  ],
+  "on_fail": [
+    {
+      "type": "set_flag",
+      "flag": "relic_lost"
     }
   ]
 }

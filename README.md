@@ -26,7 +26,7 @@ repositories {
 }
 
 dependencies {
-    implementation "com.mornfire:sqdclib:1.0.0"
+    implementation "com.mornfire:sqdclib:1.0.1"
 }
 ```
 
@@ -227,9 +227,12 @@ public static void onPhase(StoryPhaseChangedEvent event) {
 { "type": "complete_quest", "quest": "sqdclib:first_relic" }
 { "type": "start_dialogue", "dialogue": "sqdclib:elder_greeting" }
 { "type": "play_cutscene", "cutscene": "sqdclib:relic_reveal" }
+{ "type": "play_cutscene", "cutscene": "sqdclib:relic_reveal", "await": true }
 ```
 
 后四个通过 `StoryBridge` 转发给对应模块 没装对应实现时是空操作 不会炸
+
+`play_cutscene` 默认不阻塞 播完之前后面的动作照常执行 加了 `await` 之后这个动作会挂起整条动作链 演出结束后从下一条继续 写对话时用它可以做到 说完这句演一段再回到对话 详见下面的演出章节
 
 ---
 
@@ -269,28 +272,39 @@ public static void onPhase(StoryPhaseChangedEvent event) {
 | `prerequisites` | 空 | 全部完成后本任务才可接取 |
 | `visible_when` | 无 | 是否在任务书里显示 和能否接取是两回事 |
 | `objectives` | 空 | 全部达成就自动完成 |
+| `fail_when` | 无 | 满足即判定失败 和 objectives 一样每次检查时实时求值 |
 | `on_start` | 空 | 接取时执行 |
 | `on_complete` | 空 | 完成时执行 在写入完成状态之后 |
+| `on_fail` | 空 | 失败时执行 在写入失败状态之后 |
 
 有个地方值得单独说 **目标没有 已完成 这个状态** 达成与否完全由 `done` 条件实时求值 这样条件和进度不可能对不上 不会出现 条件早就满足了但界面还显示未完成 的情况 代价是每 20 tick 要重新求值一遍 任务量大时可以考虑改成事件驱动
 
 `objectives` 为空的任务不会自动完成 得靠 `complete_quest` 或者代码显式结束
 
-状态只有四种
+状态只有五种
 
 ```
 LOCKED ──前置全完成──► AVAILABLE ──start()──► ACTIVE ──目标全达成──► COMPLETED
+                          ▲                     │
+                          └──── abandon() ──────┤
+                                                └── fail_when 满足 ──► FAILED
 ```
 
+`FAILED` 是终态 不会再被 refresh 检查 也不能直接 start 想重来要先 `reset` `abandon` 不一样 它只是放下 前置满足的话任务立刻回到 AVAILABLE
+
 ```java
-Quests.status(player, questId);        // LOCKED / AVAILABLE / ACTIVE / COMPLETED
+Quests.status(player, questId);        // LOCKED / AVAILABLE / ACTIVE / COMPLETED / FAILED
 Quests.definition(player, questId);    // Optional<QuestDefinition>
 Quests.isVisible(player, questId);     // 该不该在任务书里显示
 Quests.hasPrerequisites(player, def);
 Quests.isReady(player, def);           // 目标是否全达成
+Quests.isFailed(player, def);          // fail_when 是否满足
 Quests.start(player, questId);         // 只在 AVAILABLE 时生效
 Quests.complete(player, questId);      // 只在 ACTIVE 时生效
-Quests.refresh(player);                // 手动跑一轮检查 返回本轮完成的任务
+Quests.fail(player, questId);          // 只在 ACTIVE 时生效
+Quests.abandon(player, questId);       // 放弃 回到可接取
+Quests.reset(player, questId);         // 清掉完成和失败记录 从头再来
+Quests.refresh(player);                // 手动跑一轮检查 返回本轮状态有变的任务
 ```
 
 ```java
@@ -301,7 +315,7 @@ public static void onQuestDone(QuestCompletedEvent event) {
 }
 ```
 
-`QuestStartedEvent` 和它都继承自 `QuestEvent`
+`QuestStartedEvent` `QuestCompletedEvent` `QuestFailedEvent` 都继承自 `QuestEvent`
 
 ---
 
@@ -345,6 +359,14 @@ public static void onQuestDone(QuestCompletedEvent event) {
 }
 ```
 
+对话定义有三个顶层字段
+
+| 字段 | 默认 | 说明 |
+|---|---|---|
+| `start` | 必填 | 起始节点 ID |
+| `lock_movement` | `false` | 对话期间是否锁住移动 跳跃 潜行 |
+| `nodes` | 必填 | 节点表 |
+
 节点字段
 
 | 字段 | 默认 | 说明 |
@@ -367,6 +389,10 @@ public static void onQuestDone(QuestCompletedEvent event) {
 对话是服务端权威的 服务端持有会话 负责过滤选项 执行动作 推进节点 客户端只负责画和回传下标 **条件判断全在服务端做** 客户端连不满足条件的选项长什么样都不知道 也就无从伪造
 
 推进规则没什么花样 过滤完还有选项就显示 没选项但有 `next` 就自动跳 最多连跳 64 次 防 JSON 写出死循环 两个都没有就结束 对话期间游戏不暂停 玩家可以按 Esc 主动退出
+
+节点和选项的 actions 里如果写了 `play_cutscene` 加 `await` 对话会停在那句 等演出播完再往下走 用来做 说完这段演一段再回来 的场景 挂起期间玩家也不能操作
+
+对话位置是落盘的 玩家掉线时服务端记住停在哪一句 重新上线会自动接着聊 主动按 Esc 关掉则视为结束 断点一并清掉 下次从头开始
 
 ```java
 Dialogues.start(player, dialogueId);
@@ -437,10 +463,48 @@ Dialogues.definition(player, dialogueId);
 | `letterbox` | `true` | 上下黑边 |
 | `camera` | 空 | 留空就不接管相机 |
 | `events` | 空 | 时间轴事件 |
+| `credits` | 无 | 报幕 见下面单独一节 |
 
 相机关键帧里 `yaw` `pitch` `roll` `fov` 都可省 `fov` 默认 70 其余默认 0 缓动可填 `linear` `ease_in` `ease_out` `ease_in_out` 作用于**本帧到下一帧**这一段 `yaw` 走最短路径插值 所以 350 度到 10 度是往前转 20 度 不会倒着绕一大圈
 
 时间轴事件里 `duration` 默认 40 tick 指的是文字停留多久 `fade` 的 `ticks` 是过渡时长
+
+`sound` 写一个音效 ID 加可选音量和音高 它和文字 淡入淡出一样跑在客户端时钟上 三者的触发时机是一帧对齐的 所以能卡点 不像用 `command` 执行 playsound 那样受命令系统调度 最多会差 1 tick
+
+### 报幕
+
+演出可以带一段从下往上滚的演职员表 时间轴照常跑 报幕在自己的时间段里滚
+
+```json
+"credits": {
+  "start": 175,
+  "duration": 500,
+  "speed_up": true,
+  "lines": [
+    { "text": "SQDCLib", "scale": 2.0, "gap": 30, "color": 16764057 },
+    { "text": "叙事前置库", "gap": 40 },
+    { "text": "感谢游玩", "scale": 1.5, "gap": 0, "color": 16764057 }
+  ]
+}
+```
+
+| 字段 | 默认 | 说明 |
+|---|---|---|
+| `start` | `0` | 从第几 tick 开始滚 |
+| `duration` | 必填 | 滚完全程用多少 tick |
+| `speed_up` | `true` | 先慢后快 长名单不至于拖太久 |
+| `lines` | 空 | 每一行的内容 |
+
+每行自己的字段
+
+| 字段 | 默认 | 说明 |
+|---|---|---|
+| `text` | 必填 | 文本组件 |
+| `scale` | `1.0` | 字号倍数 |
+| `gap` | `8` | 与下一行的间距 单位是像素 |
+| `color` | 白色 | RGB 整数 16764057 是浅金色 11184810 是灰 |
+
+报幕画在淡入淡出之上 想做成电影那种黑底白字 就在 events 里先 fade 到 1 字会盖在黑底上面
 
 ```java
 Cutscenes.play(player, cutsceneId);
@@ -497,7 +561,7 @@ data/<命名空间>/story_cutscene/<演出名>.json
 | `/story worldflag <名称>` | 切换世界 flag |
 | `/story counter <键> <数量>` | 增减计数器 |
 | `/story phase [阶段]` | 查询或设置剧情阶段 |
-| `/story quest <ID> [start\|complete]` | 查询 接取或完成任务 |
+| `/story quest <ID> [start\|complete\|fail\|abandon\|reset]` | 查询或改变任务状态 |
 | `/story talk <ID>` | 开始对话 |
 | `/story cutscene <ID>` | 播放演出 |
 
@@ -530,17 +594,17 @@ StoryBridge.cutsceneStarter(Cutscenes::play);
 
 ## 取舍和坑
 
-**`play_cutscene` 不阻塞** 演出播着的时候对话会话还开着 想要 演完接着聊 得自己轮询 `Cutscenes.isPlaying`
+**`play_cutscene` 默认不阻塞** 要等它演完再加 `await`
 
 **客户端改不了世界状态** 现在会把整个状态广播回客户端 一旦客户端也能写就会来回打架 如果需要 玩家选择了改变世界 这种设计 得补一个客户端到服务端的包 目前没做
 
-**演出没有音频层** 想要音效就在 `events` 里用 `command` 动作执行 `/playsound` 够用
+**演出音效走客户端播放** 这样才和画面同帧 代价是它不跟随世界坐标 要某个方块位置的立体声还得用 `command` 动作执行 playsound
 
 **相机接管用了 Mixin** 和其他修改相机位置或视角的模组可能互相覆盖 谁生效看加载顺序 只改角度的模组不受影响
 
-**对话不落盘** 玩家掉线就丢 重新上线要重新触发 对话本来就是瞬时状态 存下来反而要在意 重连后该恢复到哪一句
+**对话断点只在掉线时保留** 主动按 Esc 关掉等于结束 想下次接着聊就别关
 
-**任务每 20 tick 检查一次** 依赖计数器的任务完成最多有 1 秒延迟 需要即时反馈就直接调 `Quests.refresh(player)`
+**任务每 20 tick 检查一次** 完成和失败判定都在这一轮里跑 依赖计数器的任务最多有 1 秒延迟 需要即时反馈就直接调 `Quests.refresh(player)`
 
 ---
 

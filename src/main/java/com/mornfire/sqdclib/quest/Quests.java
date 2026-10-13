@@ -2,6 +2,7 @@ package com.mornfire.sqdclib.quest;
 
 import com.mornfire.sqdclib.SQDCLib;
 import com.mornfire.sqdclib.quest.event.QuestCompletedEvent;
+import com.mornfire.sqdclib.quest.event.QuestFailedEvent;
 import com.mornfire.sqdclib.quest.event.QuestStartedEvent;
 import com.mornfire.sqdclib.storystate.StoryProgress;
 import com.mornfire.sqdclib.storystate.action.StoryAction;
@@ -31,6 +32,9 @@ public final class Quests {
         StoryProgress progress = StoryProgress.of(player);
         if (progress.isQuestCompleted(quest)) {
             return QuestStatus.COMPLETED;
+        }
+        if (progress.hasFailedQuest(quest)) {
+            return QuestStatus.FAILED;
         }
         if (progress.isQuestActive(quest)) {
             return QuestStatus.ACTIVE;
@@ -71,6 +75,10 @@ public final class Quests {
         return true;
     }
 
+    public static boolean isFailed(Player player, QuestDefinition definition) {
+        return definition.failWhen().isPresent() && definition.failWhen().get().test(player);
+    }
+
     public static boolean start(ServerPlayer player, ResourceLocation quest) {
         if (status(player, quest) != QuestStatus.AVAILABLE) {
             return false;
@@ -97,15 +105,53 @@ public final class Quests {
         return true;
     }
 
+    public static boolean fail(ServerPlayer player, ResourceLocation quest) {
+        StoryProgress progress = StoryProgress.of(player);
+        if (!progress.isQuestActive(quest)) {
+            return false;
+        }
+        progress.deactivateQuest(quest);
+        progress.failQuest(quest);
+        definition(player, quest).ifPresent(definition -> StoryAction.runAll(player, definition.onFail()));
+        NeoForge.EVENT_BUS.post(new QuestFailedEvent(player, quest));
+        return true;
+    }
+
+    public static boolean abandon(ServerPlayer player, ResourceLocation quest) {
+        StoryProgress progress = StoryProgress.of(player);
+        if (!progress.isQuestActive(quest)) {
+            return false;
+        }
+        return progress.deactivateQuest(quest);
+    }
+
+    public static boolean reset(ServerPlayer player, ResourceLocation quest) {
+        StoryProgress progress = StoryProgress.of(player);
+        boolean changed = progress.deactivateQuest(quest);
+        changed |= progress.clearFailedQuest(quest);
+        changed |= progress.revokeQuest(quest);
+        return changed;
+    }
+
     public static List<ResourceLocation> refresh(ServerPlayer player) {
-        List<ResourceLocation> completed = new ArrayList<>();
+        List<ResourceLocation> changed = new ArrayList<>();
         for (ResourceLocation quest : List.copyOf(StoryProgress.of(player).getActiveQuests())) {
             Optional<QuestDefinition> definition = definition(player, quest);
-            if (definition.isPresent() && isReady(player, definition.get()) && complete(player, quest)) {
-                completed.add(quest);
+            if (definition.isEmpty()) {
+                continue;
+            }
+            QuestDefinition resolved = definition.get();
+            if (isFailed(player, resolved)) {
+                if (fail(player, quest)) {
+                    changed.add(quest);
+                }
+                continue;
+            }
+            if (isReady(player, resolved) && complete(player, quest)) {
+                changed.add(quest);
             }
         }
-        return completed;
+        return changed;
     }
 
     private Quests() {}
