@@ -14,7 +14,8 @@ public record DialogueNode(
         Optional<String> next,
         List<DialogueOption> options,
         List<StoryAction> actions,
-        Optional<Component> continueText) {
+        Optional<Component> continueText,
+        Optional<InputSpec> input) {
 
     public static final Codec<DialogueNode> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             ComponentSerialization.CODEC.optionalFieldOf("speaker").forGetter(DialogueNode::speaker),
@@ -22,7 +23,8 @@ public record DialogueNode(
             Codec.STRING.optionalFieldOf("next").forGetter(DialogueNode::next),
             DialogueOption.CODEC.listOf().optionalFieldOf("options", List.of()).forGetter(DialogueNode::options),
             StoryAction.CODEC.listOf().optionalFieldOf("actions", List.of()).forGetter(DialogueNode::actions),
-            ComponentSerialization.CODEC.optionalFieldOf("continue_text").forGetter(DialogueNode::continueText))
+            ComponentSerialization.CODEC.optionalFieldOf("continue_text").forGetter(DialogueNode::continueText),
+            InputSpec.CODEC.optionalFieldOf("input").forGetter(DialogueNode::input))
             .apply(instance, DialogueNode::new));
 
     public DialogueOption continueOption() {
@@ -32,5 +34,9 @@ public record DialogueNode(
 
     public boolean waitsForClick() {
         return continueText.isPresent() && next.isPresent();
+    }
+
+    public boolean expectsInput() {
+        return input.isPresent() && next.isPresent();
     }
 }

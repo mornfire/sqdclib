@@ -4,6 +4,7 @@ import com.mornfire.sqdclib.SQDCLib;
 import com.mornfire.sqdclib.dialogue.net.DialogueClosePayload;
 import com.mornfire.sqdclib.dialogue.net.DialogueOpenPayload;
 import com.mornfire.sqdclib.storystate.StoryProgress;
+import com.mornfire.sqdclib.storystate.StoryText;
 import com.mornfire.sqdclib.storystate.action.StoryAction;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -46,6 +47,11 @@ public final class Dialogues {
         return session == null ? null : session.dialogue();
     }
 
+    public static String currentNode(ServerPlayer player) {
+        Session session = SESSIONS.get(player.getUUID());
+        return session == null ? null : session.node();
+    }
+
     public static boolean start(ServerPlayer player, ResourceLocation dialogue) {
         Optional<DialogueDefinition> definition = definition(player, dialogue);
         if (definition.isEmpty()) {
@@ -76,7 +82,7 @@ public final class Dialogues {
         }
         List<DialogueOption> available = availableOptions(player, node);
         if (index < 0 || index >= available.size()) {
-            present(player, session.dialogue(), definition.get(), session.node(), node, available);
+            render(player, session.dialogue(), definition.get(), session.node(), node);
             return;
         }
         DialogueOption option = available.get(index);
@@ -87,6 +93,34 @@ public final class Dialogues {
                 stop(player);
             }
         });
+    }
+
+    public static void submit(ServerPlayer player, String value) {
+        Session session = SESSIONS.get(player.getUUID());
+        if (session == null) {
+            return;
+        }
+        Optional<DialogueDefinition> definition = definition(player, session.dialogue());
+        if (definition.isEmpty()) {
+            stop(player);
+            return;
+        }
+        DialogueNode node = definition.get().nodes().get(session.node());
+        if (node == null) {
+            stop(player);
+            return;
+        }
+        Optional<InputSpec> input = node.input();
+        if (input.isEmpty() || node.next().isEmpty()) {
+            return;
+        }
+        String trimmed = value == null ? "" : value.trim();
+        int maxLength = Math.max(0, input.get().maxLength());
+        if (trimmed.length() > maxLength) {
+            trimmed = trimmed.substring(0, maxLength);
+        }
+        StoryProgress.of(player).setString(input.get().key(), trimmed);
+        advance(player, session.dialogue(), definition.get(), node.next().get(), 0);
     }
 
     public static void stop(ServerPlayer player) {
@@ -113,16 +147,11 @@ public final class Dialogues {
         }
         String nodeId = progress.getDialogueNode();
         DialogueNode node = definition.get().nodes().get(nodeId);
-        if (node == null) {
+        if (node == null || !canPresent(player, node)) {
             progress.clearDialogue();
             return false;
         }
-        List<DialogueOption> available = availableOptions(player, node);
-        if (available.isEmpty()) {
-            progress.clearDialogue();
-            return false;
-        }
-        present(player, dialogue.get(), definition.get(), nodeId, node, available);
+        render(player, dialogue.get(), definition.get(), nodeId, node);
         return true;
     }
 
@@ -134,6 +163,10 @@ public final class Dialogues {
             }
         }
         return available;
+    }
+
+    private static boolean canPresent(Player player, DialogueNode node) {
+        return !availableOptions(player, node).isEmpty() || node.waitsForClick() || node.expectsInput();
     }
 
     private static void advance(ServerPlayer player, ResourceLocation dialogue, DialogueDefinition definition,
@@ -148,13 +181,8 @@ public final class Dialogues {
             return;
         }
         StoryAction.runSequentially(player, node.actions(), () -> {
-            List<DialogueOption> available = availableOptions(player, node);
-            if (!available.isEmpty()) {
-                present(player, dialogue, definition, nodeId, node, available);
-                return;
-            }
-            if (node.waitsForClick()) {
-                present(player, dialogue, definition, nodeId, node, List.of(node.continueOption()));
+            if (canPresent(player, node)) {
+                render(player, dialogue, definition, nodeId, node);
                 return;
             }
             if (node.next().isPresent()) {
@@ -165,17 +193,37 @@ public final class Dialogues {
         });
     }
 
+    private static void render(ServerPlayer player, ResourceLocation dialogue, DialogueDefinition definition,
+            String nodeId, DialogueNode node) {
+        List<DialogueOption> available = availableOptions(player, node);
+        if (!available.isEmpty()) {
+            present(player, dialogue, definition, nodeId, node, available, Optional.empty());
+            return;
+        }
+        if (node.waitsForClick()) {
+            present(player, dialogue, definition, nodeId, node, List.of(node.continueOption()), Optional.empty());
+            return;
+        }
+        if (node.expectsInput()) {
+            present(player, dialogue, definition, nodeId, node, List.of(), node.input());
+        }
+    }
+
     private static void present(ServerPlayer player, ResourceLocation dialogue, DialogueDefinition definition,
-            String nodeId, DialogueNode node, List<DialogueOption> available) {
+            String nodeId, DialogueNode node, List<DialogueOption> available, Optional<InputSpec> input) {
         SESSIONS.put(player.getUUID(), new Session(dialogue, nodeId));
         StoryProgress.of(player).setDialogue(dialogue, nodeId);
         PacketDistributor.sendToPlayer(player, new DialogueOpenPayload(
                 dialogue,
                 nodeId,
-                node.speaker(),
-                node.text(),
-                available.stream().map(DialogueOption::text).toList(),
-                definition.lockMovement()));
+                node.speaker().map(component -> StoryText.resolve(player, component)),
+                StoryText.resolve(player, node.text()),
+                available.stream().map(option -> StoryText.resolve(player, option.text())).toList(),
+                definition.lockMovement(),
+                definition.textSpeed(),
+                definition.placement(),
+                definition.speakerColor(),
+                input));
     }
 
     private Dialogues() {}

@@ -10,6 +10,9 @@ import com.mornfire.sqdclib.dialogue.Dialogues;
 import com.mornfire.sqdclib.dialogue.net.DialogueClosePayload;
 import com.mornfire.sqdclib.dialogue.net.DialogueOpenPayload;
 import com.mornfire.sqdclib.dialogue.net.DialogueSelectPayload;
+import com.mornfire.sqdclib.dialogue.net.DialogueSubmitPayload;
+import com.mornfire.sqdclib.music.net.MusicStartPayload;
+import com.mornfire.sqdclib.music.net.MusicStopPayload;
 import com.mornfire.sqdclib.quest.QuestDefinition;
 import com.mornfire.sqdclib.quest.Quests;
 import com.mornfire.sqdclib.storystate.StoryProgress;
@@ -67,6 +70,10 @@ public final class SQDCLib {
                 CutsceneStopPayload::handle);
         registrar.playToServer(CutsceneSkipPayload.TYPE, CutsceneSkipPayload.STREAM_CODEC,
                 CutsceneSkipPayload::handle);
+        registrar.playToServer(DialogueSubmitPayload.TYPE, DialogueSubmitPayload.STREAM_CODEC,
+                DialogueSubmitPayload::handle);
+        registrar.playToClient(MusicStartPayload.TYPE, MusicStartPayload.STREAM_CODEC, MusicStartPayload::handle);
+        registrar.playToClient(MusicStopPayload.TYPE, MusicStopPayload.STREAM_CODEC, MusicStopPayload::handle);
     }
 
     private void registerDataPackRegistries(DataPackRegistryEvent.NewRegistry event) {

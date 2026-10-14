@@ -8,6 +8,7 @@ import com.mornfire.sqdclib.storystate.FlagScope;
 import com.mornfire.sqdclib.storystate.Story;
 import com.mornfire.sqdclib.storystate.WorldState;
 import java.util.List;
+import java.util.Optional;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 
@@ -29,6 +30,7 @@ public sealed interface StoryCondition {
                     case Quest.TYPE -> DataResult.success(Quest.codec());
                     case Counter.TYPE -> DataResult.success(Counter.codec());
                     case Phase.TYPE -> DataResult.success(Phase.codec());
+                    case Text.TYPE -> DataResult.success(Text.codec());
                     case Negate.TYPE -> DataResult.success(Negate.codec(self));
                     case All.TYPE -> DataResult.success(All.codec(self));
                     case Any.TYPE -> DataResult.success(Any.codec(self));
@@ -140,8 +142,36 @@ public sealed interface StoryCondition {
         }
     }
 
-    record Negate(StoryCondition value) implements StoryCondition {
-        public static final String TYPE = "not";
+    record Text(String key, Optional<String> equals) implements StoryCondition {
+        public static final String TYPE = "string";
+
+        public static MapCodec<Text> codec() {
+            return RecordCodecBuilder.mapCodec(instance -> instance.group(
+                    Codec.STRING.fieldOf("key").forGetter(Text::key),
+                    Codec.STRING.optionalFieldOf("equals").forGetter(Text::equals))
+                    .apply(instance, Text::new));
+        }
+
+        @Override
+        public boolean test(Player player) {
+            String value = Story.getString(player, key);
+            return equals.map(expected -> expected.equals(value)).orElse(!value.isEmpty());
+        }
+
+        @Override
+        public String type() {
+            return TYPE;
+        }
+
+        @Override
+        public String explain(Player player) {
+            String value = Story.getString(player, key);
+            return "string \"" + key + "\" is \"" + value + "\""
+                    + equals.map(expected -> ", expected \"" + expected + "\"").orElse(", expected set and non-empty");
+        }
+    }
+
+    record Negate(StoryCondition value) implements StoryCondition {        public static final String TYPE = "not";
 
         public static MapCodec<Negate> codec(Codec<StoryCondition> self) {
             return RecordCodecBuilder.mapCodec(instance -> instance.group(

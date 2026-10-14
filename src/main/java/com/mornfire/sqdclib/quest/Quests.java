@@ -31,7 +31,7 @@ public final class Quests {
         return registry(player).getOptional(quest);
     }
 
-    public static QuestStatus status(ServerPlayer player, ResourceLocation quest) {
+    public static QuestStatus status(Player player, ResourceLocation quest) {
         StoryProgress progress = StoryProgress.of(player);
         if (progress.isQuestCompleted(quest)) {
             return QuestStatus.COMPLETED;
@@ -110,9 +110,7 @@ public final class Quests {
         }
         QuestDefinition resolved = definition.get();
         lines.add("schema=" + resolved.schema() + "  kind=" + resolved.kind().getSerializedName()
-                + "  status=" + (player instanceof ServerPlayer serverPlayer
-                        ? status(serverPlayer, quest).name()
-                        : "n/a"));
+                + "  status=" + status(player, quest).name());
         for (QuestObjective objective : resolved.objectives()) {
             boolean done = objective.done().test(player);
             lines.add("objective " + objective.id() + " [" + (done ? "ok" : "FAILED") + "] "

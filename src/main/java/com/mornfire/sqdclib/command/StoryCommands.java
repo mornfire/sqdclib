@@ -8,6 +8,7 @@ import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mornfire.sqdclib.SQDCLib;
 import com.mornfire.sqdclib.cutscene.Cutscenes;
 import com.mornfire.sqdclib.dialogue.Dialogues;
+import com.mornfire.sqdclib.music.Music;
 import com.mornfire.sqdclib.quest.QuestStatus;
 import com.mornfire.sqdclib.quest.Quests;
 import com.mornfire.sqdclib.storystate.Story;
@@ -59,7 +60,11 @@ public final class StoryCommands {
                                         .executes(StoryCommands::talk)))
                         .then(Commands.literal("cutscene")
                                 .then(Commands.argument("id", StringArgumentType.string())
-                                        .executes(StoryCommands::cutscene))));
+                                        .executes(StoryCommands::cutscene)))
+                        .then(Commands.literal("music")
+                                .then(Commands.literal("stop").executes(StoryCommands::stopMusic))
+                                .then(Commands.argument("id", StringArgumentType.string())
+                                        .executes(StoryCommands::playMusic))));
     }
 
     private static int status(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
@@ -190,9 +195,23 @@ public final class StoryCommands {
         return started ? 1 : 0;
     }
 
+    private static int playMusic(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        ResourceLocation id = id(context, "id");
+        boolean played = Music.play(player, id, 1.0F);
+        context.getSource().sendSuccess(() -> Component.literal("music " + id + " = " + played), true);
+        return played ? 1 : 0;
+    }
+
+    private static int stopMusic(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        Music.stop(player);
+        context.getSource().sendSuccess(() -> Component.literal("music stopped"), true);
+        return 1;
+    }
+
     private static ResourceLocation id(CommandContext<CommandSourceStack> context, String name)
-            throws CommandSyntaxException {
-        String raw = StringArgumentType.getString(context, name);
+            throws CommandSyntaxException {        String raw = StringArgumentType.getString(context, name);
         try {
             return ResourceLocation.parse(raw);
         } catch (Exception exception) {

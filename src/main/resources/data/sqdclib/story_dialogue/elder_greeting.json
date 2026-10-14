@@ -1,30 +1,38 @@
 {
   "start": "greet",
   "lock_movement": true,
+  "placement": "bottom",
+  "text_speed": 2,
   "nodes": {
     "greet": {
       "speaker": {
         "text": "长老"
       },
       "text": {
-        "text": "旅人，你终于醒了。"
+        "text": "旅人 你终于醒了"
       },
       "options": [
         {
           "text": {
-            "text": "我在哪？"
+            "text": "我在哪"
           },
           "next": "where"
         },
         {
           "text": {
-            "text": "（沉默）"
+            "text": "我叫什么"
+          },
+          "next": "ask_name"
+        },
+        {
+          "text": {
+            "text": "沉默"
           },
           "next": "silence"
         },
         {
           "text": {
-            "text": "我来找遗物。"
+            "text": "我来找遗物"
           },
           "condition": {
             "type": "flag",
@@ -34,33 +42,99 @@
         }
       ]
     },
+    "ask_name": {
+      "speaker": {
+        "text": "长老"
+      },
+      "text": {
+        "text": "那么 我该怎么称呼你"
+      },
+      "input": {
+        "key": "player_name",
+        "max_length": 16,
+        "placeholder": {
+          "text": "输入你的名字"
+        }
+      },
+      "next": "greet_named"
+    },
+    "greet_named": {
+      "speaker": {
+        "text": "长老"
+      },
+      "text": {
+        "text": "%player_name% 这个名字我记住了"
+      },
+      "continue_text": {
+        "text": "继续"
+      },
+      "next": "where"
+    },
     "where": {
       "speaker": {
         "text": "长老"
       },
       "text": {
-        "text": "这里是世界尽头的遗迹，星光的终点。"
+        "text": "这里是世界尽头的遗迹 关于它的来历 你可以"
       },
       "options": [
         {
           "text": {
-            "text": "我该做什么？"
+            "text": "我问的是现在该做什么"
           },
           "next": "task"
+        },
+        {
+          "text": {
+            "text": "我想知道这里的历史"
+          },
+          "next": "lore"
         }
       ]
+    },
+    "lore": {
+      "speaker": {
+        "text": "长老"
+      },
+      "text": {
+        "text": "碎片来自北方的塔 详细的记载在这个",
+        "extra": [
+          {
+            "text": "资料库",
+            "color": "aqua",
+            "underlined": true,
+            "click_event": {
+              "action": "open_url",
+              "value": "https://github.com/mornfire/sqdclib"
+            },
+            "hover_event": {
+              "action": "show_text",
+              "value": {
+                "text": "打开资料库 蓝色文字可以点"
+              }
+            }
+          },
+          {
+            "text": "里"
+          }
+        ]
+      },
+      "continue_text": {
+        "text": "继续"
+      },
+      "next": "task"
     },
     "silence": {
       "speaker": {
         "text": "长老"
       },
       "text": {
-        "text": "……沉默也是一种回答。"
+        "text": "沉默也是一种回答"
       },
       "options": [
         {
           "text": {
-            "text": "（离开）"
+            "text": "离开"
           }
         }
       ]
@@ -70,7 +144,7 @@
         "text": "长老"
       },
       "text": {
-        "text": "去收集三块碎片，它们散落在这片大陆上。"
+        "text": "去收集三块碎片 它们散落在这片大陆上"
       },
       "actions": [
         {
@@ -80,12 +154,17 @@
         {
           "type": "start_quest",
           "quest": "sqdclib:first_relic"
+        },
+        {
+          "type": "set_string",
+          "key": "quest_giver",
+          "value": "elder"
         }
       ],
       "options": [
         {
           "text": {
-            "text": "明白了。"
+            "text": "明白了"
           },
           "next": "farewell"
         }
@@ -96,7 +175,7 @@
         "text": "长老"
       },
       "text": {
-        "text": "碎片已经回应了你，它在指向北方。"
+        "text": "碎片已经回应了你 它在指向北方"
       },
       "actions": [
         {
@@ -108,7 +187,7 @@
       "options": [
         {
           "text": {
-            "text": "（伸出手）"
+            "text": "伸出手"
           },
           "next": "farewell"
         }
@@ -119,7 +198,7 @@
         "text": "长老"
       },
       "text": {
-        "text": "去吧，愿星光指引你。"
+        "text": "去吧 愿星光指引你"
       }
     }
   }

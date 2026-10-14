@@ -30,6 +30,7 @@ public final class StoryProgress implements INBTSerializable<CompoundTag> {
     private static final String QUESTS_KEY = "quests";
     private static final String ACTIVE_KEY = "active_quests";
     private static final String FAILED_KEY = "failed_quests";
+    private static final String STRINGS_KEY = "strings";
     private static final String DIALOGUE_KEY = "dialogue";
     private static final String DIALOGUE_NODE_KEY = "dialogue_node";
 
@@ -60,6 +61,7 @@ public final class StoryProgress implements INBTSerializable<CompoundTag> {
     private final Set<ResourceLocation> completedQuests = new HashSet<>();
     private final Set<ResourceLocation> activeQuests = new HashSet<>();
     private final Set<ResourceLocation> failedQuests = new HashSet<>();
+    private final Map<String, String> strings = new HashMap<>();
     @Nullable
     private ResourceLocation dialogue;
     private String dialogueNode = "";
@@ -187,6 +189,35 @@ public final class StoryProgress implements INBTSerializable<CompoundTag> {
         return Optional.ofNullable(dialogue);
     }
 
+    public String getString(String key) {
+        return strings.getOrDefault(key, "");
+    }
+
+    public boolean hasString(String key) {
+        return strings.containsKey(key);
+    }
+
+    public boolean setString(String key, String value) {
+        String previous = strings.get(key);
+        if (previous == null ? value == null : previous.equals(value)) {
+            return false;
+        }
+        strings.put(key, value);
+        afterChange();
+        return true;
+    }
+
+    public boolean clearString(String key) {
+        if (strings.remove(key) == null) {
+            return false;
+        }
+        afterChange();
+        return true;
+    }
+
+    public Set<String> getStringKeys() {
+        return Collections.unmodifiableSet(strings.keySet());
+    }
     public String getDialogueNode() {
         return dialogueNode;
     }
@@ -254,6 +285,10 @@ public final class StoryProgress implements INBTSerializable<CompoundTag> {
         tag.put(ACTIVE_KEY, questList(activeQuests));
         tag.put(FAILED_KEY, questList(failedQuests));
 
+        CompoundTag stringTag = new CompoundTag();
+        strings.forEach(stringTag::putString);
+        tag.put(STRINGS_KEY, stringTag);
+
         if (dialogue != null) {
             tag.putString(DIALOGUE_KEY, dialogue.toString());
             tag.putString(DIALOGUE_NODE_KEY, dialogueNode);
@@ -282,6 +317,12 @@ public final class StoryProgress implements INBTSerializable<CompoundTag> {
         readQuests(tag.getList(QUESTS_KEY, Tag.TAG_STRING), completedQuests);
         readQuests(tag.getList(ACTIVE_KEY, Tag.TAG_STRING), activeQuests);
         readQuests(tag.getList(FAILED_KEY, Tag.TAG_STRING), failedQuests);
+
+        strings.clear();
+        CompoundTag stringTag = tag.getCompound(STRINGS_KEY);
+        for (String key : stringTag.getAllKeys()) {
+            strings.put(key, stringTag.getString(key));
+        }
 
         dialogue = tag.contains(DIALOGUE_KEY) ? ResourceLocation.parse(tag.getString(DIALOGUE_KEY)) : null;
         dialogueNode = tag.getString(DIALOGUE_NODE_KEY);

@@ -5,13 +5,25 @@ import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.Map;
 
-public record DialogueDefinition(int schema, String start, boolean lockMovement, Map<String, DialogueNode> nodes) {
-    public static final int CURRENT_SCHEMA = 1;
+public record DialogueDefinition(
+        int schema,
+        String start,
+        boolean lockMovement,
+        DialoguePlacement placement,
+        int textSpeed,
+        int speakerColor,
+        Map<String, DialogueNode> nodes) {
+
+    public static final int CURRENT_SCHEMA = 2;
 
     public static final Codec<DialogueDefinition> CODEC = RecordCodecBuilder.<DialogueDefinition>create(instance -> instance.group(
             Codec.INT.optionalFieldOf("schema", CURRENT_SCHEMA).forGetter(DialogueDefinition::schema),
             Codec.STRING.fieldOf("start").forGetter(DialogueDefinition::start),
             Codec.BOOL.optionalFieldOf("lock_movement", false).forGetter(DialogueDefinition::lockMovement),
+            DialoguePlacement.CODEC.optionalFieldOf("placement", DialoguePlacement.BOTTOM)
+                    .forGetter(DialogueDefinition::placement),
+            Codec.INT.optionalFieldOf("text_speed", 0).forGetter(DialogueDefinition::textSpeed),
+            Codec.INT.optionalFieldOf("speaker_color", 0xFFFFD24A).forGetter(DialogueDefinition::speakerColor),
             Codec.unboundedMap(Codec.STRING, DialogueNode.CODEC).fieldOf("nodes")
                     .forGetter(DialogueDefinition::nodes))
             .apply(instance, DialogueDefinition::new))

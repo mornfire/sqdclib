@@ -26,7 +26,7 @@ repositories {
 }
 
 dependencies {
-    implementation "com.mornfire:sqdclib:1.0.2"
+    implementation "com.mornfire:sqdclib:1.0.3"
 }
 ```
 
@@ -175,10 +175,12 @@ public static void onPhase(StoryPhaseChangedEvent event) {
 { "type": "quest", "quest": "sqdclib:prologue" }
 { "type": "counter", "key": "shards", "at_least": 3 }
 { "type": "phase", "phase": "chapter1" }
+{ "type": "string", "key": "player_name", "equals": "Mornfire" }
+{ "type": "string", "key": "player_name" }
 { "type": "not", "value": { "type": "flag", "flag": "gate_open" } }
 ```
 
-`at_least` 默认 1 逻辑组合用 `all` 和 `any`
+`at_least` 默认 1 `string` 不写 `equals` 时判断这个变量非空 逻辑组合用 `all` 和 `any`
 
 ```json
 {
@@ -376,6 +378,9 @@ public static void onQuestDone(QuestCompletedEvent event) {
 |---|---|---|
 | `start` | 必填 | 起始节点 ID |
 | `lock_movement` | `false` | 对话期间是否锁住移动 跳跃 潜行 |
+| `placement` | `bottom` | 对话框位置 `bottom` `center` `top` |
+| `text_speed` | `0` | 每 tick 显示几个字 0 表示不做打字效果 |
+| `speaker_color` | 浅金 | 说话人名字的 RGB 整数 |
 | `nodes` | 必填 | 节点表 |
 
 节点字段
@@ -388,6 +393,7 @@ public static void onQuestDone(QuestCompletedEvent event) {
 | `options` | 空 | 分支选项 |
 | `actions` | 空 | 进入节点时执行 |
 | `continue_text` | 无 | 填了就变成等玩家点击的节点 见下 |
+| `input` | 无 | 文本输入框 见下 |
 
 选项字段
 
@@ -419,17 +425,84 @@ public static void onQuestDone(QuestCompletedEvent event) {
 
 对话位置是落盘的 玩家掉线时服务端记住停在哪一句 重新上线会自动接着聊 主动按 Esc 关掉则视为结束 断点一并清掉 下次从头开始
 
+### 输入框
+
+节点上写 `input` 会在对话框里放一个文本输入框 玩家按回车提交 内容存成字符串变量 然后走 `next` 它和 `continue_text` 一样只在没有可用选项时出现
+
+```json
+{
+  "speaker": { "text": "长老" },
+  "text": { "text": "那么 我该怎么称呼你" },
+  "input": {
+    "key": "player_name",
+    "max_length": 16,
+    "placeholder": { "text": "输入你的名字" }
+  },
+  "next": "greet_named"
+}
+```
+
+| 字段 | 默认 | 说明 |
+|---|---|---|
+| `key` | 必填 | 存到哪个字符串变量 |
+| `max_length` | `32` | 服务端会按这个长度再截一次 不信任客户端 |
+| `placeholder` | 无 | 输入框为空时的灰字提示 |
+
+### 文本插值
+
+任何显示给玩家的文本 用 `%变量名%` 就能取出字符串变量的值
+
+```json
+{ "text": "%player_name% 这个名字我记住了" }
+```
+
+节点正文 说话人名 选项文本都支持 变量不存在时替换成空串 所以不会看到裸露的百分号
+
+### 可点击文字
+
+正文里的文字可以直接用原版的文本组件样式 带 `click_event` 或 `hover_event` 的片段会变成可点区域 鼠标移上去变色并显示提示 点下去执行对应动作
+
+```json
+{
+  "text": "详细的记载在这个",
+  "extra": [
+    {
+      "text": "资料库",
+      "color": "aqua",
+      "underlined": true,
+      "click_event": { "action": "open_url", "value": "https://example.com" },
+      "hover_event": { "action": "show_text", "value": { "text": "蓝色文字可以点" } }
+    },
+    { "text": "里" }
+  ]
+}
+```
+
+动作类型就是原版那几种 `open_url` `run_command` `suggest_command` `copy_to_clipboard` `change_page` 这里不重复列举 执行走的是 Minecraft 自己的组件点击处理 所以行为和其他界面里的链接一致
+
+`click_event` 只有打在文字片段上才有效 整段纯文本不会触发
+
+### 界面
+
+对话框是一块自适应高度的面板 正文按宽度自动换行 开启 `text_speed` 后逐字显示 打字过程中点一下或按空格立刻出全 选项和可点击文字都按各自的位置做命中检测
+
+面板高度按**完整正文**计算 所以逐字显示时框不会越变越高
+
 ```java
 Dialogues.start(player, dialogueId);
 Dialogues.select(player, index);       // 客户端界面回传的下标
-Dialogues.stop(player);
+Dialogues.submit(player, text);        // 客户端输入框回传的内容
+Dialogues.stop(player);                // 结束 清断点
+Dialogues.suspend(player);             // 保留断点 只清内存会话
+Dialogues.resume(player);              // 从断点接着聊
 Dialogues.isTalking(player);
 Dialogues.currentDialogue(player);
+Dialogues.currentNode(player);
 Dialogues.availableOptions(player, node);
 Dialogues.definition(player, dialogueId);
 ```
 
-`Dialogues.CLOSE_INDEX` 是 `-1` 作为 请求关闭 的下标
+`Dialogues.CLOSE_INDEX` 是 `-1` 作为请求关闭的下标
 
 ---
 
@@ -552,6 +625,36 @@ Cutscenes.definition(player, cutsceneId);
 
 ---
 
+## 音乐
+
+循环背景音乐 播放和停止都由服务端控制 跟着玩家的会话走
+
+```java
+Music.play(player, ResourceLocation.parse("minecraft:music.overworld.forest"));
+Music.play(player, ResourceLocation.parse("minecraft:music.game"), 0.6F);   // 带音量
+Music.stop(player);
+Music.isPlaying(player);
+Music.current(player);        // 当前曲目 没播就是 null
+```
+
+音效 ID 用的是同一个音效注册表 所以原版音乐 资源包音乐 别的模组注册的音乐都能直接写
+
+播放走客户端的 MUSIC 声道 受玩家的音乐音量设置影响 同一时刻一个玩家只有一首 播新的会顶掉旧的 服务端 `stop` 或者客户端掉线都会停
+
+---
+
+## 任务界面
+
+内置一个任务列表 按 `J` 打开 也可以用 `/story quests` 打开
+
+界面按状态分组列出所有可见任务 接取中的排在最前 每条显示标题 描述 以及每个目标带完成标记和进度 比如 `[ ] 收集碎片 (3/5)`
+
+数据全部来自客户端已有的东西 任务定义是同步注册表下发的 玩家进度是自动同步的 所以界面不产生任何额外网络流量 也不会有延迟
+
+键位可以在原版的按键设置里改 分类是 SQDCLib
+
+---
+
 ## 数据包路径
 
 ```
@@ -597,6 +700,9 @@ data/<命名空间>/story_cutscene/<演出名>.json
 | `/story quest <ID> why` | 逐条打印目标与失败条件为什么没过 |
 | `/story talk <ID>` | 开始对话 |
 | `/story cutscene <ID>` | 播放演出 |
+| `/story music <ID>` | 循环播放音乐 |
+| `/story music stop` | 停止音乐 |
+| `/story quests` | 打开任务列表 这个是客户端命令 不需要 OP |
 
 ---
 
@@ -658,6 +764,10 @@ Story.setCounter(player, "k", 3)
 Story.addCounter(player, "k", 1)
 Story.completeQuest(player, id)
 Story.isQuestCompleted(player, id)
+Story.getString(player, "player_name")
+Story.setString(player, "player_name", "旅人")
+Story.clearString(player, "player_name")
+StoryText.resolve(player, component)            // 把 %变量% 替换成实际值
 ```
 
 任务层
@@ -708,6 +818,16 @@ Cutscenes.isPlaying(player)
 Cutscenes.isSkippable(player)
 Cutscenes.currentCutscene(player)
 Cutscenes.definition(player, id)
+```
+
+音乐
+
+```java
+Music.play(player, soundId)                     // 循环播放
+Music.play(player, soundId, volume)
+Music.stop(player)
+Music.isPlaying(player)
+Music.current(player)                           // 没播时是 null
 ```
 
 条件与动作 写代码时也能直接用

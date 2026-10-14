@@ -1,6 +1,8 @@
 package com.mornfire.sqdclib.dialogue.net;
 
 import com.mornfire.sqdclib.SQDCLib;
+import com.mornfire.sqdclib.dialogue.DialoguePlacement;
+import com.mornfire.sqdclib.dialogue.InputSpec;
 import com.mornfire.sqdclib.dialogue.client.ClientDialogues;
 import java.util.List;
 import java.util.Optional;
@@ -19,19 +21,50 @@ public record DialogueOpenPayload(
         Optional<Component> speaker,
         Component text,
         List<Component> options,
-        boolean lockMovement) implements CustomPacketPayload {
+        boolean lockMovement,
+        int textSpeed,
+        DialoguePlacement placement,
+        int speakerColor,
+        Optional<InputSpec> input) implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<DialogueOpenPayload> TYPE =
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(SQDCLib.MOD_ID, "dialogue_open"));
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, DialogueOpenPayload> STREAM_CODEC = StreamCodec.composite(
-            ResourceLocation.STREAM_CODEC, DialogueOpenPayload::dialogue,
-            ByteBufCodecs.STRING_UTF8, DialogueOpenPayload::node,
-            ComponentSerialization.OPTIONAL_STREAM_CODEC, DialogueOpenPayload::speaker,
-            ComponentSerialization.STREAM_CODEC, DialogueOpenPayload::text,
-            ComponentSerialization.STREAM_CODEC.apply(ByteBufCodecs.list()), DialogueOpenPayload::options,
-            ByteBufCodecs.BOOL, DialogueOpenPayload::lockMovement,
-            DialogueOpenPayload::new);
+    private static final StreamCodec<RegistryFriendlyByteBuf, List<Component>> OPTION_CODEC =
+            ComponentSerialization.STREAM_CODEC.apply(ByteBufCodecs.list());
+    private static final StreamCodec<RegistryFriendlyByteBuf, Optional<InputSpec>> INPUT_CODEC =
+            InputSpec.STREAM_CODEC.apply(ByteBufCodecs::optional);
+
+    public static final StreamCodec<RegistryFriendlyByteBuf, DialogueOpenPayload> STREAM_CODEC =
+            StreamCodec.of(DialogueOpenPayload::write, DialogueOpenPayload::read);
+
+    private static void write(RegistryFriendlyByteBuf buf, DialogueOpenPayload payload) {
+        ResourceLocation.STREAM_CODEC.encode(buf, payload.dialogue);
+        ByteBufCodecs.STRING_UTF8.encode(buf, payload.node);
+        ComponentSerialization.OPTIONAL_STREAM_CODEC.encode(buf, payload.speaker);
+        ComponentSerialization.STREAM_CODEC.encode(buf, payload.text);
+        OPTION_CODEC.encode(buf, payload.options);
+        ByteBufCodecs.BOOL.encode(buf, payload.lockMovement);
+        ByteBufCodecs.VAR_INT.encode(buf, payload.textSpeed);
+        ByteBufCodecs.VAR_INT.encode(buf, payload.placement.ordinal());
+        ByteBufCodecs.INT.encode(buf, payload.speakerColor);
+        INPUT_CODEC.encode(buf, payload.input);
+    }
+
+    private static DialogueOpenPayload read(RegistryFriendlyByteBuf buf) {
+        ResourceLocation dialogue = ResourceLocation.STREAM_CODEC.decode(buf);
+        String node = ByteBufCodecs.STRING_UTF8.decode(buf);
+        Optional<Component> speaker = ComponentSerialization.OPTIONAL_STREAM_CODEC.decode(buf);
+        Component text = ComponentSerialization.STREAM_CODEC.decode(buf);
+        List<Component> options = OPTION_CODEC.decode(buf);
+        boolean lockMovement = ByteBufCodecs.BOOL.decode(buf);
+        int textSpeed = ByteBufCodecs.VAR_INT.decode(buf);
+        DialoguePlacement placement = DialoguePlacement.values()[ByteBufCodecs.VAR_INT.decode(buf)];
+        int speakerColor = ByteBufCodecs.INT.decode(buf);
+        Optional<InputSpec> input = INPUT_CODEC.decode(buf);
+        return new DialogueOpenPayload(dialogue, node, speaker, text, options, lockMovement, textSpeed,
+                placement, speakerColor, input);
+    }
 
     @Override
     public Type<? extends CustomPacketPayload> type() {

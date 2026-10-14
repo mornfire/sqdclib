@@ -50,4 +50,16 @@ public final class Story {
     public static boolean isQuestCompleted(Player player, ResourceLocation quest) {
         return StoryProgress.of(player).isQuestCompleted(quest);
     }
+
+    public static String getString(Player player, String key) {
+        return StoryProgress.of(player).getString(key);
+    }
+
+    public static boolean setString(Player player, String key, String value) {
+        return StoryProgress.of(player).setString(key, value);
+    }
+
+    public static boolean clearString(Player player, String key) {
+        return StoryProgress.of(player).clearString(key);
+    }
 }

@@ -53,6 +53,7 @@ public sealed interface StoryAction {
                     case SetFlag.TYPE -> DataResult.success(SetFlag.codec());
                     case AddCounter.TYPE -> DataResult.success(AddCounter.codec());
                     case SetPhase.TYPE -> DataResult.success(SetPhase.codec());
+                    case SetString.TYPE -> DataResult.success(SetString.codec());
                     case Command.TYPE -> DataResult.success(Command.codec());
                     case StartQuest.TYPE -> DataResult.success(StartQuest.codec());
                     case CompleteQuest.TYPE -> DataResult.success(CompleteQuest.codec());
@@ -129,8 +130,28 @@ public sealed interface StoryAction {
         }
     }
 
-    record Command(String command) implements StoryAction {
-        public static final String TYPE = "command";
+    record SetString(String key, String value) implements StoryAction {
+        public static final String TYPE = "set_string";
+
+        public static MapCodec<SetString> codec() {
+            return RecordCodecBuilder.mapCodec(instance -> instance.group(
+                    Codec.STRING.fieldOf("key").forGetter(SetString::key),
+                    Codec.STRING.fieldOf("value").forGetter(SetString::value))
+                    .apply(instance, SetString::new));
+        }
+
+        @Override
+        public void run(ServerPlayer player) {
+            StoryProgress.of(player).setString(key, value);
+        }
+
+        @Override
+        public String type() {
+            return TYPE;
+        }
+    }
+
+    record Command(String command) implements StoryAction {        public static final String TYPE = "command";
 
         public static MapCodec<Command> codec() {
             return RecordCodecBuilder.mapCodec(instance -> instance.group(
