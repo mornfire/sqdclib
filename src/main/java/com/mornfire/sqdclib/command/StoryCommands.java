@@ -180,7 +180,8 @@ public final class StoryCommands {
         return 1;
     }
 
-    private static int talk(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {        ServerPlayer player = context.getSource().getPlayerOrException();
+    private static int talk(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
         ResourceLocation id = id(context, "id");
         boolean started = Dialogues.start(player, id);
         context.getSource().sendSuccess(() -> Component.literal("dialogue " + id + " = " + started), true);
@@ -211,9 +212,12 @@ public final class StoryCommands {
     }
 
     private static ResourceLocation id(CommandContext<CommandSourceStack> context, String name)
-            throws CommandSyntaxException {        String raw = StringArgumentType.getString(context, name);
+            throws CommandSyntaxException {
+        String raw = StringArgumentType.getString(context, name);
         try {
-            return ResourceLocation.parse(raw);
+            return raw.indexOf(':') >= 0
+                    ? ResourceLocation.parse(raw)
+                    : ResourceLocation.fromNamespaceAndPath(SQDCLib.MOD_ID, raw);
         } catch (Exception exception) {
             throw new SimpleCommandExceptionType(Component.literal("invalid id: " + raw)).create();
         }

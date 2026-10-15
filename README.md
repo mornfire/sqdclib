@@ -26,7 +26,7 @@ repositories {
 }
 
 dependencies {
-    implementation "com.mornfire:sqdclib:1.0.3"
+    implementation "com.mornfire:sqdclib:1.0.4"
 }
 ```
 
@@ -682,6 +682,8 @@ data/<命名空间>/story_cutscene/<演出名>.json
 ## 调试命令
 
 都要 OP 权限 内置三份示例数据 可以直接拿来冒烟测试
+
+命令里的 `<ID>` 可以写全称 `sqdclib:first_relic` 也可以省掉命名空间直接写 `first_relic` 省掉时按 `sqdclib` 解析 其他命名空间的内容必须写全称
 
 ```
 /story talk sqdclib:elder_greeting
