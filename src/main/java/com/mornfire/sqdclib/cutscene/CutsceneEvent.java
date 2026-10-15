@@ -16,6 +16,9 @@ public record CutsceneEvent(
         int duration,
         Optional<Fade> fade,
         Optional<SoundCue> sound,
+        Optional<AnimationCue> animation,
+        Optional<StandInCue> standIn,
+        Optional<QteCue> qte,
         List<StoryAction> actions) {
 
     public static final Codec<CutsceneEvent> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -24,6 +27,9 @@ public record CutsceneEvent(
             Codec.INT.optionalFieldOf("duration", 40).forGetter(CutsceneEvent::duration),
             Fade.CODEC.optionalFieldOf("fade").forGetter(CutsceneEvent::fade),
             SoundCue.CODEC.optionalFieldOf("sound").forGetter(CutsceneEvent::sound),
+            AnimationCue.CODEC.optionalFieldOf("animation").forGetter(CutsceneEvent::animation),
+            StandInCue.CODEC.optionalFieldOf("player_stand_in").forGetter(CutsceneEvent::standIn),
+            QteCue.CODEC.optionalFieldOf("qte").forGetter(CutsceneEvent::qte),
             StoryAction.CODEC.listOf().optionalFieldOf("actions", List.of()).forGetter(CutsceneEvent::actions))
             .apply(instance, CutsceneEvent::new));
 

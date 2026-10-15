@@ -2,5 +2,8 @@
   "key.categories.sqdclib": "SQDCLib",
   "key.sqdclib.quests": "剧情任务",
   "sqdclib.quest.title": "任务",
-  "sqdclib.quest.empty": "暂无任务"
+  "sqdclib.quest.empty": "暂无任务",
+  "sqdclib.dialogue.esc": "Esc",
+  "sqdclib.qte.prompt": "快！",
+  "sqdclib.qte.mash": "%s  ×%d"
 }

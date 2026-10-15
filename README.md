@@ -26,7 +26,7 @@ repositories {
 }
 
 dependencies {
-    implementation "com.mornfire:sqdclib:1.0.4"
+    implementation "com.mornfire:sqdclib:2.0.0"
 }
 ```
 
@@ -40,6 +40,18 @@ dependencies {
     ordering="AFTER"
     side="BOTH"
 ```
+
+---
+
+## 可选依赖
+
+GeckoLib 是可选的 只有在你用 `animation` 事件时才需要 库本身不在编译期引用它的任何类 而是运行时反射查找 `software.bernie.geckolib.animatable.GeoAnimatable`
+
+这意味着没装 GeckoLib 时 `animation` 事件是空操作 不会抛 `NoClassDefFoundError` 也不会让演出中断 装了就会正常触发
+
+`neoforge.mods.toml` 里已经声明了软依赖 打包时不用额外处理
+
+没引入 PlayerAnimator 它绑定在真玩家实体上 而替身需要的是"真玩家隐形加一个纯客户端模型" 两者模型对不上 替身需要的走位 转身 举手用 `ModelPart` 直接驱动就够 加进来只会多一层依赖
 
 ---
 
@@ -377,11 +389,39 @@ public static void onQuestDone(QuestCompletedEvent event) {
 | 字段 | 默认 | 说明 |
 |---|---|---|
 | `start` | 必填 | 起始节点 ID |
+| `mode` | `ambient` | `ambient` 或 `cinematic` 见下 |
 | `lock_movement` | `false` | 对话期间是否锁住移动 跳跃 潜行 |
 | `placement` | `bottom` | 对话框位置 `bottom` `center` `top` |
 | `text_speed` | `0` | 每 tick 显示几个字 0 表示不做打字效果 |
 | `speaker_color` | 浅金 | 说话人名字的 RGB 整数 |
 | `nodes` | 必填 | 节点表 |
+
+### 显示模式
+
+`ambient` 是默认 半透明对话框浮在屏幕底部 玩家可以继续走动 选项用数字键 `1` 到 `9` 选择 按 Esc 退出 适合支线和日常交互
+
+`cinematic` 会压暗屏幕 底部浮出一整条黑幕 黑幕里放头像 名字和台词 玩家不能移动 选项用鼠标点 适合剧情转折点 黑幕只占底部 中间留给演出画面
+
+两种模式都会显示头像 前提是说话人写了 `portrait`
+
+### 说话人与头像
+
+`speaker` 可以是一个纯文本组件 也可以是一个带头像的对象
+
+```json
+"speaker": { "text": "长老" }
+```
+
+```json
+"speaker": {
+  "name": { "text": "长老" },
+  "portrait": "sqdclib:elder"
+}
+```
+
+`portrait` 是一个资源位置 贴图放在 `assets/<命名空间>/textures/gui/portrait/<路径>.png` 建议 16x16 或 32x32 界面上按 32x32 绘制 尺寸不符会被拉伸
+
+不写 `portrait` 就只显示名字 不占位置
 
 节点字段
 
@@ -572,7 +612,99 @@ Dialogues.definition(player, dialogueId);
 
 时间轴事件里 `duration` 默认 40 tick 指的是文字停留多久 `fade` 的 `ticks` 是过渡时长
 
+除了文字和淡入淡出 一个时间轴事件还可以带 `sound` `animation` `player_stand_in` `qte` 四种子效果 各自的字段见下面每一节 同一个事件可以同时带多种 它们按 音效 动画 替身 QTE 默认动作 的顺序生效
+
 `sound` 写一个音效 ID 加可选音量和音高 它和文字 淡入淡出一样跑在客户端时钟上 三者的触发时机是一帧对齐的 所以能卡点 不像用 `command` 执行 playsound 那样受命令系统调度 最多会差 1 tick
+
+### 实体动画
+
+时间轴可以触发 GeckoLib 动画 目标实体需要自身实现 `GeoAnimatable`
+
+```json
+{
+  "time": 40,
+  "animation": {
+    "entity": "@nearest",
+    "controller": "main",
+    "name": "wave",
+    "loop": false,
+    "speed": 1.0
+  }
+}
+```
+
+| 字段 | 默认 | 说明 |
+|---|---|---|
+| `entity` | `@player` | `@player` `@self` `@nearest` 或原版选择器 `@e[type=...]` |
+| `controller` | `main` | 控制器名 |
+| `name` | 必填 | 动画名 |
+| `loop` | `false` | 预留给循环控制 见下 |
+| `speed` | `1.0` | 播放速度 |
+
+GeckoLib 是可选依赖 没装的时候这个事件是空操作 不报错也不影响其余时间轴 `speed` 通过反射调整控制器 调整失败就按动画原本的速度播 `loop` 目前读不到 GeckoLib 的循环开关 那由动画定义本身决定 字段先留着
+
+### 玩家替身
+
+演出要让玩家"做点什么"但不想真的移动玩家时用替身 真玩家隐形 在原位置放一个套用本人皮肤的假人 由演出控制走位和动作 结束时自动还原
+
+```json
+{
+  "time": 176,
+  "player_stand_in": {
+    "hide": true,
+    "keys": [
+      { "time": 0,  "offset": [0.0, 0.0, 0.0],  "yaw_offset": 0.0,  "motion": "idle" },
+      { "time": 30, "offset": [1.5, 0.0, -1.0], "yaw_offset": 45.0, "motion": "walk" },
+      { "time": 60, "offset": [1.5, 0.0, -1.0], "yaw_offset": 90.0, "motion": "wave" }
+    ]
+  }
+}
+```
+
+`hide` 为 `true` 开始替身 为 `false` 结束
+
+`keys` 里 `time` 是相对替身开始的 tick `offset` 相对玩家站立的位置 `yaw_offset` 叠加在玩家当前朝向之上
+
+`motion` 是预设动作 `idle` `walk` `wave` `point` `look_up` `bow` 两帧之间取较近的那个
+
+替身是纯客户端渲染 不生成实体 没有碰撞 没有 AI 服务端也不知道它存在 皮肤用玩家自己的 参与光照但不参与阴影
+
+位置和朝向在关键帧之间插值 动作是切换的 所以两个不同动作交界处会有一次硬切 想要过渡就在中间多给一帧
+
+### QTE
+
+时间轴可以插入一次限时按键 提示画在屏幕下方中央 不挡住演出画面
+
+```json
+{
+  "time": 200,
+  "qte": {
+    "kind": "key",
+    "key": "key.jump",
+    "duration": 40,
+    "optional": true,
+    "prompt": { "text": "接住碎片" },
+    "on_success": [ { "type": "set_flag", "flag": "relic_caught" } ],
+    "on_fail": [ { "type": "set_flag", "flag": "relic_dropped" } ]
+  }
+}
+```
+
+| 字段 | 默认 | 说明 |
+|---|---|---|
+| `kind` | `key` | `key` 按一次 `mash` 连按五次 |
+| `key` | `key.jump` | 原版按键映射名 |
+| `duration` | `40` | 限定时间 单位 tick |
+| `optional` | `true` | 见下 |
+| `prompt` | 无 | 提示文字 |
+| `on_success` | 空 | 成功时执行 |
+| `on_fail` | 空 | 失败时执行 |
+
+`optional` 只影响你怎么组织数据 引擎行为不变 设 `true` 就把 `on_fail` 当成"没接住的默认剧情" 设 `false` 就当成"失败分支"
+
+无论成败演出都继续 超时算失败 跳过演出算成功 所以剧情不会卡死
+
+按键写的是映射名 `key.jump` `key.attack` 这类 玩家改过键之后按新键算成功 因为比对的是映射不是物理键位
 
 ### 报幕
 
@@ -643,6 +775,32 @@ Music.current(player);        // 当前曲目 没播就是 null
 
 ---
 
+## 渲染层级
+
+cinematic 对话 演出 替身 QTE 同时在场时 从下往上依次是
+
+```
+世界与实体
+  相机关键帧接管视角
+  玩家替身 用玩家模型和皮肤画
+  上下黑边 letterbox
+  演出字幕
+  演出淡入淡出
+  报幕
+  对话压暗层        仅 cinematic
+  对话黑幕与头像    仅 cinematic
+  ambient 对话框    仅 ambient
+  QTE 提示
+```
+
+真玩家在替身生效期间不画 结束时画回来 演出结束时替身消失 对话如果没结束就继续 两者互不干扰
+
+QTE 在对话之上 所以剧情对话里插一次按键也看得见 它画在屏幕下方中央 不挡演出画面
+
+cinematic 的压暗层会盖住演出画面但不会盖住黑幕和台词 中间那块是留给演出本身的 只压暗不遮挡
+
+---
+
 ## 任务界面
 
 内置一个任务列表 按 `J` 打开 也可以用 `/story quests` 打开
@@ -686,10 +844,13 @@ data/<命名空间>/story_cutscene/<演出名>.json
 命令里的 `<ID>` 可以写全称 `sqdclib:first_relic` 也可以省掉命名空间直接写 `first_relic` 省掉时按 `sqdclib` 解析 其他命名空间的内容必须写全称
 
 ```
-/story talk sqdclib:elder_greeting
+/story talk elder_greeting
+/story talk villager_chat
 /story counter shards 3
-/story cutscene sqdclib:relic_reveal
+/story cutscene relic_reveal
 ```
+
+第一个是 cinematic 模式 第二个是 ambient 模式 第三个会把任务推到完成 第四个演示相机 动画 替身 QTE 和报幕
 
 | 命令 | 作用 |
 |---|---|
@@ -871,6 +1032,14 @@ StoryBridge.questCompleter(...)
 **对话断点只在掉线时保留** 主动按 Esc 关掉等于结束 想下次接着聊就别关
 
 **任务每 20 tick 检查一次** 完成和失败判定都在这一轮里跑 依赖计数器的任务最多有 1 秒延迟 需要即时反馈就直接调 `Quests.refresh(player)`
+
+**替身的动作切换是硬的** 关键帧之间位置和朝向插值 但 `motion` 是切换的 两个不同动作交界处会跳一下 中间多给一帧能缓解但除不掉 想要真正连贯的动作得上骨骼动画方案
+
+**GeckoLib 的 `loop` 目前不生效** 那个开关在动画定义里不在控制器上 反射够不着 字段先留着占位 `speed` 是尽力而为 反射失败就按动画原本的速度播
+
+**ambient 模式用数字键选选项** 因为它不开界面 玩家要保持能走动就没法用鼠标点 cinematic 是相反的取舍 鼠标能点但不能走
+
+**cinematic 黑幕是整条横跨屏幕的** 它只占底部 但如果把 `duration` 拉得很短 黑幕高度会按内容撑到超过屏幕三分之一
 
 ---
 

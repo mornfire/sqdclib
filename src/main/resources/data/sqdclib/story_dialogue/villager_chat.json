@@ -1,0 +1,73 @@
+{
+  "start": "chat",
+  "mode": "ambient",
+  "text_speed": 3,
+  "nodes": {
+    "chat": {
+      "speaker": {
+        "name": {
+          "text": "村民"
+        },
+        "portrait": "sqdclib:elder"
+      },
+      "text": {
+        "text": "路上小心 北边最近不太平"
+      },
+      "continue_text": {
+        "text": "嗯"
+      },
+      "next": "warn"
+    },
+    "warn": {
+      "speaker": {
+        "name": {
+          "text": "村民"
+        },
+        "portrait": "sqdclib:elder"
+      },
+      "text": {
+        "text": "要是见到会发光的东西 别碰"
+      },
+      "options": [
+        {
+          "text": {
+            "text": "为什么"
+          },
+          "next": "why"
+        },
+        {
+          "text": {
+            "text": "知道了"
+          },
+          "next": "bye"
+        }
+      ]
+    },
+    "why": {
+      "speaker": {
+        "name": {
+          "text": "村民"
+        },
+        "portrait": "sqdclib:elder"
+      },
+      "text": {
+        "text": "上一个碰它的人 再没回来过"
+      },
+      "continue_text": {
+        "text": "继续"
+      },
+      "next": "bye"
+    },
+    "bye": {
+      "speaker": {
+        "name": {
+          "text": "村民"
+        },
+        "portrait": "sqdclib:elder"
+      },
+      "text": {
+        "text": "有空常来"
+      }
+    }
+  }
+}

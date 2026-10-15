@@ -213,13 +213,18 @@ public final class Dialogues {
             String nodeId, DialogueNode node, List<DialogueOption> available, Optional<InputSpec> input) {
         SESSIONS.put(player.getUUID(), new Session(dialogue, nodeId));
         StoryProgress.of(player).setDialogue(dialogue, nodeId);
+        Speaker speaker = node.speaker()
+                .map(raw -> new Speaker(StoryText.resolve(player, raw.name()), raw.portrait()))
+                .orElse(null);
         PacketDistributor.sendToPlayer(player, new DialogueOpenPayload(
                 dialogue,
                 nodeId,
-                node.speaker().map(component -> StoryText.resolve(player, component)),
+                speaker == null ? Optional.empty() : Optional.of(speaker.name()),
+                speaker == null ? Optional.empty() : speaker.portrait(),
                 StoryText.resolve(player, node.text()),
                 available.stream().map(option -> StoryText.resolve(player, option.text())).toList(),
                 definition.lockMovement(),
+                definition.mode(),
                 definition.textSpeed(),
                 definition.placement(),
                 definition.speakerColor(),

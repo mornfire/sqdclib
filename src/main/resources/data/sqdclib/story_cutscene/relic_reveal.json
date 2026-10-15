@@ -2,6 +2,7 @@
   "duration": 720,
   "lock_movement": true,
   "letterbox": true,
+  "skippable": true,
   "camera": [
     {
       "time": 0,
@@ -85,11 +86,81 @@
           "flag": "relic_revealed"
         }
       ]
+    },
+    {
+      "time": 176,
+      "player_stand_in": {
+        "hide": true,
+        "keys": [
+          {
+            "time": 0,
+            "offset": [0.0, 0.0, 0.0],
+            "yaw_offset": 0.0,
+            "motion": "idle"
+          },
+          {
+            "time": 30,
+            "offset": [1.5, 0.0, -1.0],
+            "yaw_offset": 45.0,
+            "motion": "walk"
+          },
+          {
+            "time": 60,
+            "offset": [1.5, 0.0, -1.0],
+            "yaw_offset": 90.0,
+            "motion": "wave"
+          }
+        ]
+      }
+    },
+    {
+      "time": 190,
+      "fade": {
+        "to": 0.0,
+        "ticks": 15
+      }
+    },
+    {
+      "time": 200,
+      "qte": {
+        "kind": "key",
+        "key": "key.jump",
+        "duration": 40,
+        "optional": true,
+        "prompt": {
+          "text": "接住碎片"
+        },
+        "on_success": [
+          {
+            "type": "set_flag",
+            "flag": "relic_caught"
+          }
+        ],
+        "on_fail": [
+          {
+            "type": "set_flag",
+            "flag": "relic_dropped"
+          }
+        ]
+      }
+    },
+    {
+      "time": 260,
+      "player_stand_in": {
+        "hide": false
+      }
+    },
+    {
+      "time": 280,
+      "text": {
+        "text": "你收好了它"
+      },
+      "duration": 60
     }
   ],
   "credits": {
-    "start": 175,
-    "duration": 500,
+    "start": 420,
+    "duration": 280,
     "speed_up": true,
     "lines": [
       {
@@ -107,7 +178,7 @@
         "gap": 60
       },
       {
-        "text": "SQDCLib 1.0.3",
+        "text": "SQDCLib 2.0.0",
         "gap": 10,
         "color": 11184810
       },

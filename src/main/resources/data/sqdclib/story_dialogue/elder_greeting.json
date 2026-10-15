@@ -1,12 +1,16 @@
 {
   "start": "greet",
+  "mode": "cinematic",
   "lock_movement": true,
   "placement": "bottom",
   "text_speed": 2,
   "nodes": {
     "greet": {
       "speaker": {
-        "text": "长老"
+        "name": {
+          "text": "长老"
+        },
+        "portrait": "sqdclib:elder"
       },
       "text": {
         "text": "旅人 你终于醒了"
@@ -44,7 +48,10 @@
     },
     "ask_name": {
       "speaker": {
-        "text": "长老"
+        "name": {
+          "text": "长老"
+        },
+        "portrait": "sqdclib:elder"
       },
       "text": {
         "text": "那么 我该怎么称呼你"
@@ -60,7 +67,10 @@
     },
     "greet_named": {
       "speaker": {
-        "text": "长老"
+        "name": {
+          "text": "长老"
+        },
+        "portrait": "sqdclib:elder"
       },
       "text": {
         "text": "%player_name% 这个名字我记住了"
@@ -72,7 +82,10 @@
     },
     "where": {
       "speaker": {
-        "text": "长老"
+        "name": {
+          "text": "长老"
+        },
+        "portrait": "sqdclib:elder"
       },
       "text": {
         "text": "这里是世界尽头的遗迹 关于它的来历 你可以"
@@ -94,7 +107,10 @@
     },
     "lore": {
       "speaker": {
-        "text": "长老"
+        "name": {
+          "text": "长老"
+        },
+        "portrait": "sqdclib:elder"
       },
       "text": {
         "text": "碎片来自北方的塔 详细的记载在这个",
@@ -126,7 +142,10 @@
     },
     "silence": {
       "speaker": {
-        "text": "长老"
+        "name": {
+          "text": "长老"
+        },
+        "portrait": "sqdclib:elder"
       },
       "text": {
         "text": "沉默也是一种回答"
@@ -141,7 +160,10 @@
     },
     "task": {
       "speaker": {
-        "text": "长老"
+        "name": {
+          "text": "长老"
+        },
+        "portrait": "sqdclib:elder"
       },
       "text": {
         "text": "去收集三块碎片 它们散落在这片大陆上"
@@ -172,7 +194,10 @@
     },
     "relic": {
       "speaker": {
-        "text": "长老"
+        "name": {
+          "text": "长老"
+        },
+        "portrait": "sqdclib:elder"
       },
       "text": {
         "text": "碎片已经回应了你 它在指向北方"
@@ -195,7 +220,10 @@
     },
     "farewell": {
       "speaker": {
-        "text": "长老"
+        "name": {
+          "text": "长老"
+        },
+        "portrait": "sqdclib:elder"
       },
       "text": {
         "text": "去吧 愿星光指引你"

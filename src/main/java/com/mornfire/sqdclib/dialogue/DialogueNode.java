@@ -9,7 +9,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
 
 public record DialogueNode(
-        Optional<Component> speaker,
+        Optional<Speaker> speaker,
         Component text,
         Optional<String> next,
         List<DialogueOption> options,
@@ -18,7 +18,7 @@ public record DialogueNode(
         Optional<InputSpec> input) {
 
     public static final Codec<DialogueNode> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            ComponentSerialization.CODEC.optionalFieldOf("speaker").forGetter(DialogueNode::speaker),
+            Speaker.CODEC.optionalFieldOf("speaker").forGetter(DialogueNode::speaker),
             ComponentSerialization.CODEC.fieldOf("text").forGetter(DialogueNode::text),
             Codec.STRING.optionalFieldOf("next").forGetter(DialogueNode::next),
             DialogueOption.CODEC.listOf().optionalFieldOf("options", List.of()).forGetter(DialogueNode::options),

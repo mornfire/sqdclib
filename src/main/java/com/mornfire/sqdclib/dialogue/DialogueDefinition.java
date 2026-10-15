@@ -8,17 +8,19 @@ import java.util.Map;
 public record DialogueDefinition(
         int schema,
         String start,
+        DialogueMode mode,
         boolean lockMovement,
         DialoguePlacement placement,
         int textSpeed,
         int speakerColor,
         Map<String, DialogueNode> nodes) {
 
-    public static final int CURRENT_SCHEMA = 2;
+    public static final int CURRENT_SCHEMA = 3;
 
     public static final Codec<DialogueDefinition> CODEC = RecordCodecBuilder.<DialogueDefinition>create(instance -> instance.group(
             Codec.INT.optionalFieldOf("schema", CURRENT_SCHEMA).forGetter(DialogueDefinition::schema),
             Codec.STRING.fieldOf("start").forGetter(DialogueDefinition::start),
+            DialogueMode.CODEC.optionalFieldOf("mode", DialogueMode.AMBIENT).forGetter(DialogueDefinition::mode),
             Codec.BOOL.optionalFieldOf("lock_movement", false).forGetter(DialogueDefinition::lockMovement),
             DialoguePlacement.CODEC.optionalFieldOf("placement", DialoguePlacement.BOTTOM)
                     .forGetter(DialogueDefinition::placement),
@@ -28,6 +30,10 @@ public record DialogueDefinition(
                     .forGetter(DialogueDefinition::nodes))
             .apply(instance, DialogueDefinition::new))
             .validate(DialogueDefinition::validateSchema);
+
+    public boolean cinematic() {
+        return mode == DialogueMode.CINEMATIC;
+    }
 
     private static DataResult<DialogueDefinition> validateSchema(DialogueDefinition definition) {
         if (definition.schema() > CURRENT_SCHEMA) {

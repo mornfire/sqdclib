@@ -25,3 +25,10 @@ config="sqdclib.mixins.json"
     versionRange="${minecraft_version_range}"
     ordering="NONE"
     side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="geckolib"
+    type="optional"
+    versionRange="[4.0,)"
+    ordering="AFTER"
+    side="BOTH"

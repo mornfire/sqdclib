@@ -5,6 +5,9 @@ import com.mornfire.sqdclib.cutscene.Cutscenes;
 import com.mornfire.sqdclib.cutscene.net.CutsceneSkipPayload;
 import com.mornfire.sqdclib.cutscene.net.CutsceneStartPayload;
 import com.mornfire.sqdclib.cutscene.net.CutsceneStopPayload;
+import com.mornfire.sqdclib.cutscene.net.QteResultPayload;
+import com.mornfire.sqdclib.cutscene.net.QteStartPayload;
+import com.mornfire.sqdclib.cutscene.net.StandInPayload;
 import com.mornfire.sqdclib.dialogue.DialogueDefinition;
 import com.mornfire.sqdclib.dialogue.Dialogues;
 import com.mornfire.sqdclib.dialogue.net.DialogueClosePayload;
@@ -56,7 +59,7 @@ public final class SQDCLib {
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("1");
+        PayloadRegistrar registrar = event.registrar("2");
         registrar.playToClient(WorldStatePayload.TYPE, WorldStatePayload.STREAM_CODEC, WorldStatePayload::handle);
         registrar.playToClient(DialogueOpenPayload.TYPE, DialogueOpenPayload.STREAM_CODEC,
                 DialogueOpenPayload::handle);
@@ -74,6 +77,9 @@ public final class SQDCLib {
                 DialogueSubmitPayload::handle);
         registrar.playToClient(MusicStartPayload.TYPE, MusicStartPayload.STREAM_CODEC, MusicStartPayload::handle);
         registrar.playToClient(MusicStopPayload.TYPE, MusicStopPayload.STREAM_CODEC, MusicStopPayload::handle);
+        registrar.playToClient(QteStartPayload.TYPE, QteStartPayload.STREAM_CODEC, QteStartPayload::handle);
+        registrar.playToServer(QteResultPayload.TYPE, QteResultPayload.STREAM_CODEC, QteResultPayload::handle);
+        registrar.playToClient(StandInPayload.TYPE, StandInPayload.STREAM_CODEC, StandInPayload::handle);
     }
 
     private void registerDataPackRegistries(DataPackRegistryEvent.NewRegistry event) {

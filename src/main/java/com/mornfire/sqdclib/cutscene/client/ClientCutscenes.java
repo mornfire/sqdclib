@@ -67,6 +67,8 @@ public final class ClientCutscenes {
         fadeTo = 0.0F;
         fadeTicks = 0;
         fadeElapsed = 0;
+        ClientQte.clear();
+        ClientStandIn.clear();
     }
 
     public static void clientTick() {
