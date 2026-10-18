@@ -60,7 +60,12 @@ public final class StoryCommands {
                                         .executes(StoryCommands::talk)))
                         .then(Commands.literal("cutscene")
                                 .then(Commands.argument("id", StringArgumentType.string())
-                                        .executes(StoryCommands::cutscene)))
+                                        .executes(StoryCommands::cutscene)
+                                        .then(Commands.argument("start", IntegerArgumentType.integer(0))
+                                                .executes(StoryCommands::cutsceneAt))))
+                        .then(Commands.literal("seek")
+                                .then(Commands.argument("tick", IntegerArgumentType.integer(0))
+                                        .executes(StoryCommands::seek)))
                         .then(Commands.literal("music")
                                 .then(Commands.literal("stop").executes(StoryCommands::stopMusic))
                                 .then(Commands.argument("id", StringArgumentType.string())
@@ -196,8 +201,25 @@ public final class StoryCommands {
         return started ? 1 : 0;
     }
 
-    private static int playMusic(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+    private static int cutsceneAt(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
+        ResourceLocation id = id(context, "id");
+        int start = IntegerArgumentType.getInteger(context, "start");
+        boolean started = Cutscenes.play(player, id, start);
+        context.getSource().sendSuccess(
+                () -> Component.literal("cutscene " + id + " @" + start + " = " + started), true);
+        return started ? 1 : 0;
+    }
+
+    private static int seek(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        int tick = IntegerArgumentType.getInteger(context, "tick");
+        boolean moved = Cutscenes.seek(player, tick);
+        context.getSource().sendSuccess(() -> Component.literal("seek " + tick + " = " + moved), true);
+        return moved ? 1 : 0;
+    }
+
+    private static int playMusic(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {        ServerPlayer player = context.getSource().getPlayerOrException();
         ResourceLocation id = id(context, "id");
         boolean played = Music.play(player, id, 1.0F);
         context.getSource().sendSuccess(() -> Component.literal("music " + id + " = " + played), true);

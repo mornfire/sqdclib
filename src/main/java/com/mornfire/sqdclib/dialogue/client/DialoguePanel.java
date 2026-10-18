@@ -24,7 +24,7 @@ public final class DialoguePanel {
     private static final int LINE_HEIGHT = 12;
     private static final int OPTION_HEIGHT = 14;
     private static final int OPTION_INDENT = 6;
-    private static final int PORTRAIT_SIZE = 32;
+    private static final int PORTRAIT_SIZE = 48;
     private static final int PORTRAIT_GAP = 10;
     private static final int BOX_MAX_WIDTH = 460;
     private static final int CINEMATIC_DIVISOR = 3;

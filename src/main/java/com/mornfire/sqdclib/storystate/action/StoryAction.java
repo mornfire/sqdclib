@@ -12,7 +12,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
-public sealed interface StoryAction {
+public interface StoryAction {
     void run(ServerPlayer player);
 
     String type();
@@ -49,17 +49,23 @@ public sealed interface StoryAction {
         return Codec.STRING.partialDispatch(
                 "type",
                 action -> DataResult.success(action.type()),
-                name -> switch (name) {
-                    case SetFlag.TYPE -> DataResult.success(SetFlag.codec());
-                    case AddCounter.TYPE -> DataResult.success(AddCounter.codec());
-                    case SetPhase.TYPE -> DataResult.success(SetPhase.codec());
-                    case SetString.TYPE -> DataResult.success(SetString.codec());
-                    case Command.TYPE -> DataResult.success(Command.codec());
-                    case StartQuest.TYPE -> DataResult.success(StartQuest.codec());
-                    case CompleteQuest.TYPE -> DataResult.success(CompleteQuest.codec());
-                    case StartDialogue.TYPE -> DataResult.success(StartDialogue.codec());
-                    case PlayCutscene.TYPE -> DataResult.success(PlayCutscene.codec());
-                    default -> DataResult.error(() -> "Unknown story action type: " + name);
+                name -> {
+                    MapCodec<? extends StoryAction> custom = StoryActions.lookup(name);
+                    if (custom != null) {
+                        return DataResult.success(custom);
+                    }
+                    return switch (name) {
+                        case SetFlag.TYPE -> DataResult.success(SetFlag.codec());
+                        case AddCounter.TYPE -> DataResult.success(AddCounter.codec());
+                        case SetPhase.TYPE -> DataResult.success(SetPhase.codec());
+                        case SetString.TYPE -> DataResult.success(SetString.codec());
+                        case Command.TYPE -> DataResult.success(Command.codec());
+                        case StartQuest.TYPE -> DataResult.success(StartQuest.codec());
+                        case CompleteQuest.TYPE -> DataResult.success(CompleteQuest.codec());
+                        case StartDialogue.TYPE -> DataResult.success(StartDialogue.codec());
+                        case PlayCutscene.TYPE -> DataResult.success(PlayCutscene.codec());
+                        default -> DataResult.error(() -> "Unknown story action type: " + name);
+                    };
                 });
     }
 

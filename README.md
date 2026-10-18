@@ -26,7 +26,7 @@ repositories {
 }
 
 dependencies {
-    implementation "com.mornfire:sqdclib:2.0.0"
+    implementation "com.mornfire:sqdclib:2.1.0"
 }
 ```
 
@@ -246,6 +246,30 @@ public static void onPhase(StoryPhaseChangedEvent event) {
 
 后四个通过 `StoryBridge` 转发给对应模块 没装对应实现时是空操作 不会炸
 
+### 自定义动作
+
+内置八种不够用时可以注册自己的类型
+
+```java
+StoryActions.register(
+        ResourceLocation.fromNamespaceAndPath("ymondf", "avatar_reveal"),
+        RecordCodecBuilder.mapCodec(instance -> instance.group(
+                Codec.INT.fieldOf("tick").forGetter(AvatarReveal::tick))
+                .apply(instance, AvatarReveal::new)));
+```
+
+自定义动作实现 `StoryAction` 接口 提供 `run(ServerPlayer)` 和 `type()` 然后 JSON 里写全名
+
+```json
+{ "type": "ymondf:avatar_reveal", "tick": 300 }
+```
+
+`type()` 返回的字符串要和注册时的资源位置完全一致 带冒号 不带冒号的按内置类型查找
+
+注册要在 mod 构造阶段完成 早于任何数据包解析就行
+
+签名收的是 `MapCodec` 不是 `Codec` 因为底层的 type 分发只能接 `MapCodec` 把 record 的 `mapCodec` 直接传进来即可 不需要额外包一层
+
 `play_cutscene` 默认不阻塞 播完之前后面的动作照常执行 加了 `await` 之后这个动作会挂起整条动作链 演出结束后从下一条继续 写对话时用它可以做到 说完这句演一段再回到对话 详见下面的演出章节
 
 ---
@@ -419,7 +443,7 @@ public static void onQuestDone(QuestCompletedEvent event) {
 }
 ```
 
-`portrait` 是一个资源位置 贴图放在 `assets/<命名空间>/textures/gui/portrait/<路径>.png` 建议 16x16 或 32x32 界面上按 32x32 绘制 尺寸不符会被拉伸
+`portrait` 是一个资源位置 贴图放在 `assets/<命名空间>/textures/gui/portrait/<路径>.png` 界面上按 48x48 绘制 建议贴图也用 48x48 尺寸不符会被拉伸
 
 不写 `portrait` 就只显示名字 不占位置
 
@@ -603,6 +627,7 @@ Dialogues.definition(player, dialogueId);
 | `camera` | 空 | 留空就不接管相机 |
 | `events` | 空 | 时间轴事件 |
 | `credits` | 无 | 报幕 见下面单独一节 |
+| `music` | 无 | 过场音轨 开始自动播 结束或跳过自动停 |
 
 `skippable` 打开之后 演出期间按 Esc 是跳过而不是暂停 跳过会把还没触发的 `actions` 按顺序全部补齐执行 再走正常的结束流程 所以挂在它后面的 `await` 对话照样会继续 奖励也不会因为跳过而丢
 
@@ -610,9 +635,58 @@ Dialogues.definition(player, dialogueId);
 
 相机关键帧里 `yaw` `pitch` `roll` `fov` 都可省 `fov` 默认 70 其余默认 0 缓动可填 `linear` `ease_in` `ease_out` `ease_in_out` 作用于**本帧到下一帧**这一段 `yaw` 走最短路径插值 所以 350 度到 10 度是往前转 20 度 不会倒着绕一大圈
 
+### 看向一个点
+
+关键帧可以写 `look_at` 给一个世界坐标 相机会自动算出朝向 这时候 `yaw` 和 `pitch` 只作为退化情况下的缺省
+
+```json
+{
+  "time": 60,
+  "position": [4.0, 68.5, -6.0],
+  "look_at": [0.5, 66.0, 0.5],
+  "fov": 58.0,
+  "easing": "ease_in_out"
+}
+```
+
+目标会移动的时候这个比手算角度可靠 你只要关心注视点在哪 环绕角度由位置自动推出来
+
 时间轴事件里 `duration` 默认 40 tick 指的是文字停留多久 `fade` 的 `ticks` 是过渡时长
 
 除了文字和淡入淡出 一个时间轴事件还可以带 `sound` `animation` `player_stand_in` `qte` 四种子效果 各自的字段见下面每一节 同一个事件可以同时带多种 它们按 音效 动画 替身 QTE 默认动作 的顺序生效
+
+`music` 写一个音效 ID 过场开始时循环播放 结束时停 被跳过时也停 用这个就不用在 tick 0 手写一个 `sound` 事件 也就不会出现跳过之后音乐还在响的情况
+
+### 每 tick 回调
+
+服务端每个 tick 会发一次 `CutsceneTickEvent` tick 是 `0` 到 `duration - 1`
+
+```java
+@SubscribeEvent
+public static void onCutsceneTick(CutsceneTickEvent event) {
+    ServerPlayer player = event.getPlayer();
+    int tick = event.getTick();
+    int duration = event.getDuration();
+    float progress = duration <= 1 ? 1.0F : tick / (float) (duration - 1);
+}
+```
+
+这个 tick 和 `CutsceneDefinition.duration` 是同一条时间轴 所以透明度 光环 平行对话都能卡在真实进度上 不需要自己再起一个计数器
+
+注意是**服务端**事件 客户端要同步效果的话得自己发包
+
+### 从指定 tick 开始
+
+```java
+Cutscenes.play(player, id, 400);   // 直接从第 400 tick 开始
+Cutscenes.seek(player, 500);       // 播放中往后跳到 500
+```
+
+`play` 带起始 tick 时**之前的事件不会补执行** 它们被标记成已触发 直接跳过 `seek` 同理 只跳时间轴 不补动作
+
+这样断线重连时可以跳过已经看过的前段 直接到对话和黑幕 而不是整段跳过
+
+`seek` 只能往前 传一个更小的 tick 会返回 false 需要回退就重新 `play`
 
 `sound` 写一个音效 ID 加可选音量和音高 它和文字 淡入淡出一样跑在客户端时钟上 三者的触发时机是一帧对齐的 所以能卡点 不像用 `command` 执行 playsound 那样受命令系统调度 最多会差 1 tick
 
@@ -751,6 +825,21 @@ Cutscenes.definition(player, cutsceneId);
 
 `play` 不阻塞 调用完立刻返回 想知道演完没有 轮询 `isPlaying`
 
+演出结束会发 `CutsceneFinishedEvent` 带一个原因
+
+```java
+@SubscribeEvent
+public static void onCutsceneFinished(CutsceneFinishedEvent event) {
+    switch (event.getReason()) {
+        case FINISHED -> { }   // 正常放完
+        case SKIPPED -> { }    // 玩家按 Esc 跳过
+        case STOPPED -> { }    // 被外部 stop 或者被新演出顶掉
+    }
+}
+```
+
+区分这个很重要 生成 Boss 停音乐这类副作用该不该在跳过时发生 取决于你的剧情设计 但库至少要把三种情况分开告诉你
+
 时间轴两端各跑各的 服务端按 tick 触发 `actions` 客户端按 tick 加部分帧触发文字和淡入淡出 两端不共享时钟 动作和画面之间最多差 1 tick 这是有意的取舍 换成同步时钟得为一次演出额外维护往返状态 不划算
 
 相机接管是这里唯一一处 Mixin 原因很直接 NeoForge 的 `ViewportEvent.ComputeCameraAngles` 触发在 `Camera.setup()` 的**第一行** 紧接着 `setRotation` 和 `setPosition` 就会把它覆盖掉 所以在那个事件里改位置是无效的 相机位置没有官方钩子 只能在 `setup()` 返回时注入 另外用 AccessTransformer 打开了 `Camera.setPosition` 和 `setRotation` 它们原本是 protected
@@ -863,6 +952,8 @@ data/<命名空间>/story_cutscene/<演出名>.json
 | `/story quest <ID> why` | 逐条打印目标与失败条件为什么没过 |
 | `/story talk <ID>` | 开始对话 |
 | `/story cutscene <ID>` | 播放演出 |
+| `/story cutscene <ID> <起始 tick>` | 从指定 tick 开始 |
+| `/story seek <tick>` | 播放中往后跳 |
 | `/story music <ID>` | 循环播放音乐 |
 | `/story music stop` | 停止音乐 |
 | `/story quests` | 打开任务列表 这个是客户端命令 不需要 OP |
@@ -973,6 +1064,9 @@ Dialogues.definition(player, id)
 ```java
 Cutscenes.play(player, id)
 Cutscenes.play(player, id, onFinish)            // 演完执行回调
+Cutscenes.play(player, id, startTick)           // 从指定 tick 开始 之前的不补执行
+Cutscenes.seek(player, tick)                    // 播放中往后跳
+Cutscenes.currentTick(player)                   // 没在播就是 -1
 Cutscenes.playFor(players, id)                  // 给一组人播 返回开始了几场
 Cutscenes.playNear(anchor, radius, id)          // 给附近的人播
 Cutscenes.skip(player)                          // 补齐剩余 actions 后结束
@@ -1005,6 +1099,9 @@ StoryBridge.dialogueStarter(...)
 StoryBridge.cutsceneStarter(...)
 StoryBridge.questStarter(...)
 StoryBridge.questCompleter(...)
+
+StoryActions.register(type, mapCodec)           // 注册自定义动作类型
+StoryActions.registered()                       // 已注册的类型
 ```
 
 ---

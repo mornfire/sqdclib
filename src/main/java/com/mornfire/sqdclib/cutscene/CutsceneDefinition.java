@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
+import net.minecraft.resources.ResourceLocation;
 
 public record CutsceneDefinition(
         int schema,
@@ -14,11 +15,12 @@ public record CutsceneDefinition(
         boolean lockMovement,
         boolean letterbox,
         boolean skippable,
+        Optional<ResourceLocation> music,
         List<CameraKeyframe> camera,
         List<CutsceneEvent> events,
         Optional<Credits> credits) {
 
-    public static final int CURRENT_SCHEMA = 1;
+    public static final int CURRENT_SCHEMA = 2;
 
     public static final Codec<CutsceneDefinition> CODEC = RecordCodecBuilder.<CutsceneDefinition>create(instance -> instance.group(
             Codec.INT.optionalFieldOf("schema", CURRENT_SCHEMA).forGetter(CutsceneDefinition::schema),
@@ -26,6 +28,7 @@ public record CutsceneDefinition(
             Codec.BOOL.optionalFieldOf("lock_movement", true).forGetter(CutsceneDefinition::lockMovement),
             Codec.BOOL.optionalFieldOf("letterbox", true).forGetter(CutsceneDefinition::letterbox),
             Codec.BOOL.optionalFieldOf("skippable", false).forGetter(CutsceneDefinition::skippable),
+            ResourceLocation.CODEC.optionalFieldOf("music").forGetter(CutsceneDefinition::music),
             CameraKeyframe.CODEC.listOf().optionalFieldOf("camera", List.of())
                     .forGetter(CutsceneDefinition::camera),
             CutsceneEvent.CODEC.listOf().optionalFieldOf("events", List.of())

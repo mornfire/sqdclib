@@ -2,6 +2,7 @@ package com.mornfire.sqdclib;
 
 import com.mornfire.sqdclib.cutscene.CutsceneDefinition;
 import com.mornfire.sqdclib.cutscene.Cutscenes;
+import com.mornfire.sqdclib.cutscene.net.CutsceneSeekPayload;
 import com.mornfire.sqdclib.cutscene.net.CutsceneSkipPayload;
 import com.mornfire.sqdclib.cutscene.net.CutsceneStartPayload;
 import com.mornfire.sqdclib.cutscene.net.CutsceneStopPayload;
@@ -71,6 +72,8 @@ public final class SQDCLib {
                 CutsceneStartPayload::handle);
         registrar.playToClient(CutsceneStopPayload.TYPE, CutsceneStopPayload.STREAM_CODEC,
                 CutsceneStopPayload::handle);
+        registrar.playToClient(CutsceneSeekPayload.TYPE, CutsceneSeekPayload.STREAM_CODEC,
+                CutsceneSeekPayload::handle);
         registrar.playToServer(CutsceneSkipPayload.TYPE, CutsceneSkipPayload.STREAM_CODEC,
                 CutsceneSkipPayload::handle);
         registrar.playToServer(DialogueSubmitPayload.TYPE, DialogueSubmitPayload.STREAM_CODEC,

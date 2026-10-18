@@ -49,14 +49,27 @@ public final class ClientCutscenes {
         return definition == null ? Optional.empty() : definition.credits();
     }
 
-    public static void start(CutsceneDefinition cutscene) {
+    public static void start(CutsceneDefinition cutscene, int startTick) {
         definition = cutscene;
-        tick = 0;
+        tick = Math.max(0, startTick);
         TEXTS.clear();
         fadeFrom = 0.0F;
         fadeTo = 0.0F;
         fadeTicks = 0;
         fadeElapsed = 0;
+    }
+
+    public static void seekTo(int target) {
+        if (definition == null) {
+            return;
+        }
+        tick = Math.max(0, target);
+        TEXTS.clear();
+        fadeFrom = 0.0F;
+        fadeTo = 0.0F;
+        fadeTicks = 0;
+        fadeElapsed = 0;
+        ClientQte.clear();
     }
 
     public static void stop() {
@@ -161,16 +174,21 @@ public final class ClientCutscenes {
             return exact(from);
         }
         float eased = to.easing().apply(segment.progress());
+        float fromYaw = from.resolvedYaw();
+        float toYaw = to.resolvedYaw();
+        float fromPitch = from.resolvedPitch();
+        float toPitch = to.resolvedPitch();
         return new CameraSample(
                 from.position().lerp(to.position(), eased),
-                Mth.rotLerp(eased, from.yaw(), to.yaw()),
-                Mth.lerp(eased, from.pitch(), to.pitch()),
+                Mth.rotLerp(eased, fromYaw, toYaw),
+                Mth.lerp(eased, fromPitch, toPitch),
                 Mth.lerp(eased, from.roll(), to.roll()),
                 Mth.lerp(eased, from.fov(), to.fov()));
     }
 
     private static CameraSample exact(CameraKeyframe frame) {
-        return new CameraSample(frame.position(), frame.yaw(), frame.pitch(), frame.roll(), frame.fov());
+        return new CameraSample(frame.position(), frame.resolvedYaw(), frame.resolvedPitch(),
+                frame.roll(), frame.fov());
     }
 
     private ClientCutscenes() {}

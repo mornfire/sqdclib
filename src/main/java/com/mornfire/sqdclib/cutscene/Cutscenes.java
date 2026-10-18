@@ -3,10 +3,13 @@ package com.mornfire.sqdclib.cutscene;
 import com.mojang.brigadier.StringReader;
 import com.mornfire.sqdclib.SQDCLib;
 import com.mornfire.sqdclib.cutscene.event.CutsceneFinishedEvent;
+import com.mornfire.sqdclib.cutscene.event.CutsceneTickEvent;
+import com.mornfire.sqdclib.cutscene.net.CutsceneSeekPayload;
 import com.mornfire.sqdclib.cutscene.net.CutsceneStartPayload;
 import com.mornfire.sqdclib.cutscene.net.CutsceneStopPayload;
 import com.mornfire.sqdclib.cutscene.net.QteStartPayload;
 import com.mornfire.sqdclib.cutscene.net.StandInPayload;
+import com.mornfire.sqdclib.music.Music;
 import com.mornfire.sqdclib.storystate.action.StoryAction;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -77,26 +80,71 @@ public final class Cutscenes {
         return session != null && session.definition.skippable();
     }
 
+    public static int currentTick(ServerPlayer player) {
+        Session session = SESSIONS.get(player.getUUID());
+        return session == null ? -1 : session.tick;
+    }
+
     public static ResourceLocation currentCutscene(ServerPlayer player) {
         Session session = SESSIONS.get(player.getUUID());
         return session == null ? null : session.cutscene;
     }
 
     public static boolean play(ServerPlayer player, ResourceLocation cutscene) {
-        return play(player, cutscene, null);
+        return play(player, cutscene, 0, null);
+    }
+
+    public static boolean play(ServerPlayer player, ResourceLocation cutscene, int startTick) {
+        return play(player, cutscene, startTick, null);
     }
 
     public static boolean play(ServerPlayer player, ResourceLocation cutscene, @Nullable Runnable onFinish) {
+        return play(player, cutscene, 0, onFinish);
+    }
+
+    public static boolean play(ServerPlayer player, ResourceLocation cutscene, int startTick,
+            @Nullable Runnable onFinish) {
         Optional<CutsceneDefinition> definition = definition(player, cutscene);
         if (definition.isEmpty()) {
             return false;
         }
         Session previous = SESSIONS.get(player.getUUID());
         if (previous != null) {
-            PacketDistributor.sendToPlayer(player, new CutsceneStopPayload());
+            finish(player, previous, CutsceneFinishedEvent.Reason.STOPPED);
         }
-        SESSIONS.put(player.getUUID(), new Session(cutscene, definition.get(), onFinish));
-        PacketDistributor.sendToPlayer(player, new CutsceneStartPayload(definition.get()));
+        CutsceneDefinition resolved = definition.get();
+        Session session = new Session(cutscene, resolved, onFinish);
+        session.tick = Math.max(0, Math.min(startTick, resolved.duration()));
+        List<CutsceneEvent> events = resolved.events();
+        for (int i = 0; i < events.size(); i++) {
+            if (events.get(i).time() < session.tick) {
+                session.fired.add(i);
+            }
+        }
+        SESSIONS.put(player.getUUID(), session);
+        resolved.music().ifPresent(music -> Music.play(player, music, 1.0F));
+        PacketDistributor.sendToPlayer(player, new CutsceneStartPayload(resolved, session.tick));
+        return true;
+    }
+
+    public static boolean seek(ServerPlayer player, int tick) {
+        Session session = SESSIONS.get(player.getUUID());
+        if (session == null) {
+            return false;
+        }
+        int target = Math.max(0, Math.min(tick, session.definition.duration()));
+        if (target <= session.tick) {
+            return false;
+        }
+        List<CutsceneEvent> events = session.definition.events();
+        for (int i = 0; i < events.size(); i++) {
+            if (events.get(i).time() < target) {
+                session.fired.add(i);
+            }
+        }
+        session.pending = null;
+        session.tick = target;
+        PacketDistributor.sendToPlayer(player, new CutsceneSeekPayload(target));
         return true;
     }
 
@@ -127,21 +175,25 @@ public final class Cutscenes {
         if (session == null) {
             return;
         }
-        session.tick++;
+        int duration = session.definition.duration();
+        if (session.tick >= duration) {
+            finish(player, session, CutsceneFinishedEvent.Reason.FINISHED);
+            return;
+        }
+        int current = session.tick;
         List<CutsceneEvent> events = session.definition.events();
         for (int i = 0; i < events.size(); i++) {
             CutsceneEvent event = events.get(i);
-            if (event.time() == session.tick && session.fired.add(i)) {
+            if (event.time() == current && session.fired.add(i)) {
                 applyEvent(player, session, event, false);
             }
         }
+        NeoForge.EVENT_BUS.post(new CutsceneTickEvent(player, session.cutscene, current, duration));
         PendingQte pending = session.pending;
-        if (pending != null && session.tick >= pending.deadline()) {
+        if (pending != null && current >= pending.deadline()) {
             resolveQte(player, pending.id(), false);
         }
-        if (session.tick >= session.definition.duration()) {
-            finish(player, session);
-        }
+        session.tick++;
     }
 
     public static boolean skip(ServerPlayer player) {
@@ -155,8 +207,15 @@ public final class Cutscenes {
                 applyEvent(player, session, events.get(i), true);
             }
         }
-        finish(player, session);
+        finish(player, session, CutsceneFinishedEvent.Reason.SKIPPED);
         return true;
+    }
+
+    public static void stop(ServerPlayer player) {
+        Session session = SESSIONS.get(player.getUUID());
+        if (session != null) {
+            finish(player, session, CutsceneFinishedEvent.Reason.STOPPED);
+        }
     }
 
     public static void resolveQte(ServerPlayer player, int id, boolean success) {
@@ -171,13 +230,6 @@ public final class Cutscenes {
         session.pending = null;
         QteCue cue = pending.cue();
         StoryAction.runAll(player, success ? cue.onSuccess() : cue.onFail());
-    }
-
-    public static void stop(ServerPlayer player) {
-        Session session = SESSIONS.get(player.getUUID());
-        if (session != null) {
-            finish(player, session);
-        }
     }
 
     private static void applyEvent(ServerPlayer player, Session session, CutsceneEvent event, boolean skipping) {
@@ -236,7 +288,7 @@ public final class Cutscenes {
         }
     }
 
-    private static void finish(ServerPlayer player, Session session) {
+    private static void finish(ServerPlayer player, Session session, CutsceneFinishedEvent.Reason reason) {
         if (SESSIONS.remove(player.getUUID()) == null) {
             return;
         }
@@ -245,8 +297,11 @@ public final class Cutscenes {
                     false, player.getUUID(), player.getYRot(), List.of()));
         }
         session.pending = null;
+        if (session.definition.music().isPresent()) {
+            Music.stop(player);
+        }
         PacketDistributor.sendToPlayer(player, new CutsceneStopPayload());
-        NeoForge.EVENT_BUS.post(new CutsceneFinishedEvent(player, session.cutscene));
+        NeoForge.EVENT_BUS.post(new CutsceneFinishedEvent(player, session.cutscene, reason));
         for (Runnable finisher : session.finishers) {
             finisher.run();
         }
