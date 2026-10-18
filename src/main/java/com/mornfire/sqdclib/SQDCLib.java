@@ -1,5 +1,6 @@
 package com.mornfire.sqdclib;
 
+import com.mojang.logging.LogUtils;
 import com.mornfire.sqdclib.cutscene.CutsceneDefinition;
 import com.mornfire.sqdclib.cutscene.Cutscenes;
 import com.mornfire.sqdclib.cutscene.net.CutsceneSeekPayload;
@@ -22,21 +23,31 @@ import com.mornfire.sqdclib.quest.Quests;
 import com.mornfire.sqdclib.storystate.StoryProgress;
 import com.mornfire.sqdclib.storystate.action.StoryBridge;
 import com.mornfire.sqdclib.storystate.net.WorldStatePayload;
+import net.minecraft.core.Registry;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.registries.DataPackRegistryEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
+import org.slf4j.Logger;
 
 @Mod(SQDCLib.MOD_ID)
+@EventBusSubscriber(modid = SQDCLib.MOD_ID)
 public final class SQDCLib {
     public static final String MOD_ID = "sqdclib";
+
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     public static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES =
             DeferredRegister.create(NeoForgeRegistries.Keys.ATTACHMENT_TYPES, MOD_ID);
@@ -89,5 +100,19 @@ public final class SQDCLib {
         event.dataPackRegistry(Quests.REGISTRY_KEY, QuestDefinition.CODEC, QuestDefinition.CODEC);
         event.dataPackRegistry(Dialogues.REGISTRY_KEY, DialogueDefinition.CODEC, DialogueDefinition.CODEC);
         event.dataPackRegistry(Cutscenes.REGISTRY_KEY, CutsceneDefinition.CODEC, CutsceneDefinition.CODEC);
+    }
+
+    @SubscribeEvent
+    public static void onServerStarted(ServerStartedEvent event) {
+        RegistryAccess access = event.getServer().overworld().registryAccess();
+        logRegistry(access, Quests.REGISTRY_KEY, "story_quest");
+        logRegistry(access, Dialogues.REGISTRY_KEY, "story_dialogue");
+        logRegistry(access, Cutscenes.REGISTRY_KEY, "story_cutscene");
+    }
+
+    private static <T> void logRegistry(RegistryAccess access, ResourceKey<Registry<T>> key, String label) {
+        access.registry(key).ifPresentOrElse(
+                registry -> LOGGER.info("[sqdclib] {} = {} entries {}", label, registry.size(), registry.keySet()),
+                () -> LOGGER.warn("[sqdclib] {} registry is missing entirely", label));
     }
 }

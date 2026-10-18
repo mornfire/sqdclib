@@ -26,7 +26,7 @@ repositories {
 }
 
 dependencies {
-    implementation "com.mornfire:sqdclib:2.1.0"
+    implementation "com.mornfire:sqdclib:2.1.1"
 }
 ```
 
@@ -1137,6 +1137,18 @@ StoryActions.registered()                       // 已注册的类型
 **ambient 模式用数字键选选项** 因为它不开界面 玩家要保持能走动就没法用鼠标点 cinematic 是相反的取舍 鼠标能点但不能走
 
 **cinematic 黑幕是整条横跨屏幕的** 它只占底部 但如果把 `duration` 拉得很短 黑幕高度会按内容撑到超过屏幕三分之一
+
+**数据包注册表只在世界加载时读一次** `/reload` 不会重建它们 换了 jar 或者改了 `data/` 下的文件之后要退出世界重进 老存档还会带着已知数据包列表 排查时先用新存档确认一次
+
+**启动日志里有三行自检** 服务端起好之后会打印
+
+```
+[sqdclib] story_quest = 2 entries [sqdclib:first_relic, sqdclib:prologue]
+[sqdclib] story_dialogue = 2 entries [sqdclib:elder_greeting, sqdclib:villager_chat]
+[sqdclib] story_cutscene = 1 entries [sqdclib:relic_reveal]
+```
+
+如果三行都是空集合 说明库侧的注册没生效 如果只有你自己的条目缺失 那是命名空间或路径的问题 如果打印的是 `registry is missing entirely` 说明注册表根本没建出来 三种情况的排查方向完全不同
 
 ---
 
