@@ -23,19 +23,13 @@ import com.mornfire.sqdclib.quest.Quests;
 import com.mornfire.sqdclib.storystate.StoryProgress;
 import com.mornfire.sqdclib.storystate.action.StoryBridge;
 import com.mornfire.sqdclib.storystate.net.WorldStatePayload;
-import net.minecraft.core.Registry;
-import net.minecraft.core.RegistryAccess;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.bus.api.IEventBus;
-import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
-import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.registries.DataPackRegistryEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -43,9 +37,9 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
 import org.slf4j.Logger;
 
 @Mod(SQDCLib.MOD_ID)
-@EventBusSubscriber(modid = SQDCLib.MOD_ID)
 public final class SQDCLib {
     public static final String MOD_ID = "sqdclib";
+    public static final String NETWORK_VERSION = "3";
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
@@ -71,7 +65,7 @@ public final class SQDCLib {
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("2");
+        PayloadRegistrar registrar = event.registrar(NETWORK_VERSION);
         registrar.playToClient(WorldStatePayload.TYPE, WorldStatePayload.STREAM_CODEC, WorldStatePayload::handle);
         registrar.playToClient(DialogueOpenPayload.TYPE, DialogueOpenPayload.STREAM_CODEC,
                 DialogueOpenPayload::handle);
@@ -79,6 +73,8 @@ public final class SQDCLib {
                 DialogueClosePayload::handle);
         registrar.playToServer(DialogueSelectPayload.TYPE, DialogueSelectPayload.STREAM_CODEC,
                 DialogueSelectPayload::handle);
+        registrar.playToServer(DialogueSubmitPayload.TYPE, DialogueSubmitPayload.STREAM_CODEC,
+                DialogueSubmitPayload::handle);
         registrar.playToClient(CutsceneStartPayload.TYPE, CutsceneStartPayload.STREAM_CODEC,
                 CutsceneStartPayload::handle);
         registrar.playToClient(CutsceneStopPayload.TYPE, CutsceneStopPayload.STREAM_CODEC,
@@ -87,32 +83,20 @@ public final class SQDCLib {
                 CutsceneSeekPayload::handle);
         registrar.playToServer(CutsceneSkipPayload.TYPE, CutsceneSkipPayload.STREAM_CODEC,
                 CutsceneSkipPayload::handle);
-        registrar.playToServer(DialogueSubmitPayload.TYPE, DialogueSubmitPayload.STREAM_CODEC,
-                DialogueSubmitPayload::handle);
-        registrar.playToClient(MusicStartPayload.TYPE, MusicStartPayload.STREAM_CODEC, MusicStartPayload::handle);
-        registrar.playToClient(MusicStopPayload.TYPE, MusicStopPayload.STREAM_CODEC, MusicStopPayload::handle);
         registrar.playToClient(QteStartPayload.TYPE, QteStartPayload.STREAM_CODEC, QteStartPayload::handle);
         registrar.playToServer(QteResultPayload.TYPE, QteResultPayload.STREAM_CODEC, QteResultPayload::handle);
         registrar.playToClient(StandInPayload.TYPE, StandInPayload.STREAM_CODEC, StandInPayload::handle);
+        registrar.playToClient(MusicStartPayload.TYPE, MusicStartPayload.STREAM_CODEC, MusicStartPayload::handle);
+        registrar.playToClient(MusicStopPayload.TYPE, MusicStopPayload.STREAM_CODEC, MusicStopPayload::handle);
     }
 
     private void registerDataPackRegistries(DataPackRegistryEvent.NewRegistry event) {
         event.dataPackRegistry(Quests.REGISTRY_KEY, QuestDefinition.CODEC, QuestDefinition.CODEC);
         event.dataPackRegistry(Dialogues.REGISTRY_KEY, DialogueDefinition.CODEC, DialogueDefinition.CODEC);
         event.dataPackRegistry(Cutscenes.REGISTRY_KEY, CutsceneDefinition.CODEC, CutsceneDefinition.CODEC);
-    }
-
-    @SubscribeEvent
-    public static void onServerStarted(ServerStartedEvent event) {
-        RegistryAccess access = event.getServer().overworld().registryAccess();
-        logRegistry(access, Quests.REGISTRY_KEY, "story_quest");
-        logRegistry(access, Dialogues.REGISTRY_KEY, "story_dialogue");
-        logRegistry(access, Cutscenes.REGISTRY_KEY, "story_cutscene");
-    }
-
-    private static <T> void logRegistry(RegistryAccess access, ResourceKey<Registry<T>> key, String label) {
-        access.registry(key).ifPresentOrElse(
-                registry -> LOGGER.info("[sqdclib] {} = {} entries {}", label, registry.size(), registry.keySet()),
-                () -> LOGGER.warn("[sqdclib] {} registry is missing entirely", label));
+        LOGGER.info("[sqdclib] datapack registries registered: {} {} {}",
+                Quests.REGISTRY_KEY.location(),
+                Dialogues.REGISTRY_KEY.location(),
+                Cutscenes.REGISTRY_KEY.location());
     }
 }

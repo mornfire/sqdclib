@@ -26,7 +26,7 @@ repositories {
 }
 
 dependencies {
-    implementation "com.mornfire:sqdclib:2.1.1"
+    implementation "com.mornfire:sqdclib:2.1.2"
 }
 ```
 
@@ -905,12 +905,14 @@ cinematic 的压暗层会盖住演出画面但不会盖住黑幕和台词 中间
 ## 数据包路径
 
 ```
-data/<命名空间>/story_quest/<任务名>.json
-data/<命名空间>/story_dialogue/<对话名>.json
-data/<命名空间>/story_cutscene/<演出名>.json
+data/<包命名空间>/sqdclib/story_quest/<任务名>.json
+data/<包命名空间>/sqdclib/story_dialogue/<对话名>.json
+data/<包命名空间>/sqdclib/story_cutscene/<演出名>.json
 ```
 
-三类都是同步注册表 定义会自动下发到客户端 ID 由路径决定 `data/mypack/story_quest/first_relic.json` 就是 `sqdclib:first_relic`
+注意中间那层 `sqdclib/` 不能省 数据包注册表的路径规则是 `data/<包命名空间>/<注册表命名空间>/<注册表路径>/` 三个注册表的命名空间都是 `sqdclib` 所以要多一层 少了这层的话注册表会是空的 而且不会报错 只是什么都加载不到
+
+三类都是同步注册表 定义会自动下发到客户端 ID 由路径决定 `data/mypack/sqdclib/story_quest/first_relic.json` 就是 `sqdclib:first_relic`
 
 三个定义都可以写一个可选的 `schema` 字段 默认 1 当前也是 1 以后加了新字段会把版本提上去 旧版本遇到更高的 schema 会直接报错并跳过这个文件 而不是按缺省值解析出半个正确的结果 那种沉默的错最难查
 
@@ -1143,12 +1145,10 @@ StoryActions.registered()                       // 已注册的类型
 **启动日志里有三行自检** 服务端起好之后会打印
 
 ```
-[sqdclib] story_quest = 2 entries [sqdclib:first_relic, sqdclib:prologue]
-[sqdclib] story_dialogue = 2 entries [sqdclib:elder_greeting, sqdclib:villager_chat]
-[sqdclib] story_cutscene = 1 entries [sqdclib:relic_reveal]
+[sqdclib] story_quest holds 2 entries [sqdclib:first_relic, sqdclib:prologue] (loaded from data/<pack_namespace>/sqdclib/story_quest/)
 ```
 
-如果三行都是空集合 说明库侧的注册没生效 如果只有你自己的条目缺失 那是命名空间或路径的问题 如果打印的是 `registry is missing entirely` 说明注册表根本没建出来 三种情况的排查方向完全不同
+如果看到 `is registered but holds no entries` 说明注册表建出来了但一个文件都没读到 检查路径是不是少了一层 `sqdclib/` 如果看到 `was never created` 说明 `DataPackRegistryEvent` 没跑到 那是库侧的问题
 
 ---
 
