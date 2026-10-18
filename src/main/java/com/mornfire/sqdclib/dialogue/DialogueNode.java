@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
+import net.minecraft.resources.ResourceLocation;
 
 public record DialogueNode(
         Optional<Speaker> speaker,
@@ -15,7 +16,8 @@ public record DialogueNode(
         List<DialogueOption> options,
         List<StoryAction> actions,
         Optional<Component> continueText,
-        Optional<InputSpec> input) {
+        Optional<InputSpec> input,
+        Optional<ResourceLocation> portrait) {
 
     public static final Codec<DialogueNode> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Speaker.CODEC.optionalFieldOf("speaker").forGetter(DialogueNode::speaker),
@@ -24,7 +26,8 @@ public record DialogueNode(
             DialogueOption.CODEC.listOf().optionalFieldOf("options", List.of()).forGetter(DialogueNode::options),
             StoryAction.CODEC.listOf().optionalFieldOf("actions", List.of()).forGetter(DialogueNode::actions),
             ComponentSerialization.CODEC.optionalFieldOf("continue_text").forGetter(DialogueNode::continueText),
-            InputSpec.CODEC.optionalFieldOf("input").forGetter(DialogueNode::input))
+            InputSpec.CODEC.optionalFieldOf("input").forGetter(DialogueNode::input),
+            ResourceLocation.CODEC.optionalFieldOf("portrait").forGetter(DialogueNode::portrait))
             .apply(instance, DialogueNode::new));
 
     public DialogueOption continueOption() {

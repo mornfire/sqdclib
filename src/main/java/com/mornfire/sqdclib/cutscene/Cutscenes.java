@@ -13,6 +13,7 @@ import com.mornfire.sqdclib.music.Music;
 import com.mornfire.sqdclib.storystate.action.StoryAction;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -20,6 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.commands.arguments.selector.EntitySelector;
 import net.minecraft.commands.arguments.selector.EntitySelectorParser;
 import net.minecraft.core.Registry;
@@ -40,6 +42,7 @@ public final class Cutscenes {
     private static final double NEAREST_RADIUS = 16.0D;
 
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
+    private static final Map<ResourceLocation, CutsceneDefinition> CODE_DEFINITIONS = new ConcurrentHashMap<>();
 
     private record PendingQte(int id, QteCue cue, int deadline) {}
 
@@ -67,7 +70,23 @@ public final class Cutscenes {
         return player.level().registryAccess().registryOrThrow(REGISTRY_KEY);
     }
 
+    public static void register(ResourceLocation id, CutsceneDefinition definition) {
+        CODE_DEFINITIONS.put(id, definition);
+    }
+
+    public static boolean unregister(ResourceLocation id) {
+        return CODE_DEFINITIONS.remove(id) != null;
+    }
+
+    public static Set<ResourceLocation> registered() {
+        return Collections.unmodifiableSet(CODE_DEFINITIONS.keySet());
+    }
+
     public static Optional<CutsceneDefinition> definition(Player player, ResourceLocation cutscene) {
+        CutsceneDefinition code = CODE_DEFINITIONS.get(cutscene);
+        if (code != null) {
+            return Optional.of(code);
+        }
         return registry(player).getOptional(cutscene);
     }
 

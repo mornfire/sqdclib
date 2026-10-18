@@ -4,6 +4,8 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.Map;
+import java.util.Optional;
+import net.minecraft.resources.ResourceLocation;
 
 public record DialogueDefinition(
         int schema,
@@ -13,6 +15,7 @@ public record DialogueDefinition(
         DialoguePlacement placement,
         int textSpeed,
         int speakerColor,
+        Optional<ResourceLocation> portrait,
         Map<String, DialogueNode> nodes) {
 
     public static final int CURRENT_SCHEMA = 3;
@@ -26,6 +29,7 @@ public record DialogueDefinition(
                     .forGetter(DialogueDefinition::placement),
             Codec.INT.optionalFieldOf("text_speed", 0).forGetter(DialogueDefinition::textSpeed),
             Codec.INT.optionalFieldOf("speaker_color", 0xFFFFD24A).forGetter(DialogueDefinition::speakerColor),
+            ResourceLocation.CODEC.optionalFieldOf("portrait").forGetter(DialogueDefinition::portrait),
             Codec.unboundedMap(Codec.STRING, DialogueNode.CODEC).fieldOf("nodes")
                     .forGetter(DialogueDefinition::nodes))
             .apply(instance, DialogueDefinition::new))

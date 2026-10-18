@@ -51,10 +51,9 @@ public class QuestScreen extends Screen {
         if (player == null) {
             return;
         }
-        Registry<QuestDefinition> registry = Quests.registry(player);
         List<Card> built = new ArrayList<>();
-        for (ResourceLocation id : registry.keySet()) {
-            Optional<QuestDefinition> entry = registry.getOptional(id);
+        for (ResourceLocation id : Quests.allIds(player)) {
+            Optional<QuestDefinition> entry = Quests.definition(player, id);
             if (entry.isEmpty() || !Quests.isVisible(player, id)) {
                 continue;
             }

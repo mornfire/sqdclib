@@ -9,8 +9,13 @@ import com.mornfire.sqdclib.storystate.StoryProgress;
 import com.mornfire.sqdclib.storystate.action.StoryAction;
 import com.mornfire.sqdclib.storystate.condition.StoryCondition;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.Registry;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
@@ -23,11 +28,35 @@ public final class Quests {
     public static final ResourceKey<Registry<QuestDefinition>> REGISTRY_KEY =
             ResourceKey.createRegistryKey(ResourceLocation.fromNamespaceAndPath(SQDCLib.MOD_ID, "story_quest"));
 
+    private static final Map<ResourceLocation, QuestDefinition> CODE_DEFINITIONS = new ConcurrentHashMap<>();
+
     public static Registry<QuestDefinition> registry(Player player) {
         return player.level().registryAccess().registryOrThrow(REGISTRY_KEY);
     }
 
+    public static void register(ResourceLocation id, QuestDefinition definition) {
+        CODE_DEFINITIONS.put(id, definition);
+    }
+
+    public static boolean unregister(ResourceLocation id) {
+        return CODE_DEFINITIONS.remove(id) != null;
+    }
+
+    public static Set<ResourceLocation> registered() {
+        return Collections.unmodifiableSet(CODE_DEFINITIONS.keySet());
+    }
+
+    public static Set<ResourceLocation> allIds(Player player) {
+        Set<ResourceLocation> ids = new LinkedHashSet<>(CODE_DEFINITIONS.keySet());
+        ids.addAll(registry(player).keySet());
+        return ids;
+    }
+
     public static Optional<QuestDefinition> definition(Player player, ResourceLocation quest) {
+        QuestDefinition code = CODE_DEFINITIONS.get(quest);
+        if (code != null) {
+            return Optional.of(code);
+        }
         return registry(player).getOptional(quest);
     }
 

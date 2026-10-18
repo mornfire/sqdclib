@@ -12,8 +12,11 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import com.mojang.logging.LogUtils;
 
 public final class Music {
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static final Map<UUID, ResourceLocation> PLAYING = new HashMap<>();
 
     public static void play(ServerPlayer player, ResourceLocation sound) {
@@ -26,6 +29,8 @@ public final class Music {
                 .getHolder(sound)
                 .orElse(null);
         if (holder == null) {
+            LOGGER.warn("[sqdclib] music '{}' is not a registered sound event. "
+                    + "The id must match an entry in a sounds.json, not an audio file path.", sound);
             return false;
         }
         PLAYING.put(player.getUUID(), sound);

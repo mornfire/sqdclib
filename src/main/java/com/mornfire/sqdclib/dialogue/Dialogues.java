@@ -7,11 +7,14 @@ import com.mornfire.sqdclib.storystate.StoryProgress;
 import com.mornfire.sqdclib.storystate.StoryText;
 import com.mornfire.sqdclib.storystate.action.StoryAction;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -27,6 +30,7 @@ public final class Dialogues {
             ResourceKey.createRegistryKey(ResourceLocation.fromNamespaceAndPath(SQDCLib.MOD_ID, "story_dialogue"));
 
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
+    private static final Map<ResourceLocation, DialogueDefinition> CODE_DEFINITIONS = new ConcurrentHashMap<>();
 
     private record Session(ResourceLocation dialogue, String node) {}
 
@@ -34,7 +38,23 @@ public final class Dialogues {
         return player.level().registryAccess().registryOrThrow(REGISTRY_KEY);
     }
 
+    public static void register(ResourceLocation id, DialogueDefinition definition) {
+        CODE_DEFINITIONS.put(id, definition);
+    }
+
+    public static boolean unregister(ResourceLocation id) {
+        return CODE_DEFINITIONS.remove(id) != null;
+    }
+
+    public static Set<ResourceLocation> registered() {
+        return Collections.unmodifiableSet(CODE_DEFINITIONS.keySet());
+    }
+
     public static Optional<DialogueDefinition> definition(Player player, ResourceLocation dialogue) {
+        DialogueDefinition code = CODE_DEFINITIONS.get(dialogue);
+        if (code != null) {
+            return Optional.of(code);
+        }
         return registry(player).getOptional(dialogue);
     }
 
@@ -216,11 +236,15 @@ public final class Dialogues {
         Speaker speaker = node.speaker()
                 .map(raw -> new Speaker(StoryText.resolve(player, raw.name()), raw.portrait()))
                 .orElse(null);
+        Optional<ResourceLocation> portrait = node.portrait()
+                .or(() -> node.speaker().flatMap(Speaker::portrait))
+                .or(definition::portrait)
+                .map(PortraitTextures::resolve);
         PacketDistributor.sendToPlayer(player, new DialogueOpenPayload(
                 dialogue,
                 nodeId,
                 speaker == null ? Optional.empty() : Optional.of(speaker.name()),
-                speaker == null ? Optional.empty() : speaker.portrait(),
+                portrait,
                 StoryText.resolve(player, node.text()),
                 available.stream().map(option -> StoryText.resolve(player, option.text())).toList(),
                 definition.lockMovement(),

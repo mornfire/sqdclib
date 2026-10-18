@@ -2,6 +2,7 @@
   "start": "chat",
   "mode": "ambient",
   "text_speed": 3,
+  "portrait": "sqdclib:elder",
   "nodes": {
     "chat": {
       "speaker": {

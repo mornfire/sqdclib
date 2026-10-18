@@ -1,11 +1,15 @@
 package com.mornfire.sqdclib.dialogue.client;
 
+import com.mojang.blaze3d.platform.NativeImage;
 import com.mornfire.sqdclib.dialogue.DialogueMode;
 import com.mornfire.sqdclib.dialogue.DialoguePlacement;
 import com.mornfire.sqdclib.dialogue.net.DialogueOpenPayload;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.StringSplitter;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -15,6 +19,7 @@ import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.util.FormattedCharSequence;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,6 +40,7 @@ public final class DialoguePanel {
     private static final int OPTION_COLOR = 0xFFBFBFBF;
     private static final int OPTION_HOVER_COLOR = 0xFFFFD24A;
     private static final int HINT_COLOR = 0xFF8A8A8A;
+    private static final Map<ResourceLocation, int[]> SIZE_CACHE = new HashMap<>();
 
     public record ClickableSpan(int left, int top, int right, int bottom, Style style) {
         public boolean contains(double x, double y) {
@@ -110,13 +116,30 @@ public final class DialoguePanel {
 
     @Nullable
     public ResourceLocation portraitTexture() {
-        Optional<ResourceLocation> portrait = payload.portrait();
-        if (portrait.isEmpty()) {
-            return null;
+        return payload.portrait().orElse(null);
+    }
+
+    private int[] portraitSize(ResourceLocation texture) {
+        int[] cached = SIZE_CACHE.get(texture);
+        if (cached != null) {
+            return cached;
         }
-        ResourceLocation id = portrait.get();
-        return ResourceLocation.fromNamespaceAndPath(id.getNamespace(),
-                "textures/gui/portrait/" + id.getPath() + ".png");
+        int[] size = {PORTRAIT_SIZE, PORTRAIT_SIZE};
+        try {
+            Resource resource = Minecraft.getInstance().getResourceManager().getResourceOrThrow(texture);
+            try (NativeImage image = NativeImage.read(resource.open())) {
+                int width = image.getWidth();
+                int height = image.getHeight();
+                if (width > 0 && height > 0) {
+                    float scale = PORTRAIT_SIZE / (float) Math.max(width, height);
+                    size = new int[] {Math.max(1, (int) (width * scale)), Math.max(1, (int) (height * scale))};
+                }
+            }
+        } catch (Throwable throwable) {
+            size = new int[] {PORTRAIT_SIZE, PORTRAIT_SIZE};
+        }
+        SIZE_CACHE.put(texture, size);
+        return size;
     }
 
     @Nullable
@@ -145,14 +168,22 @@ public final class DialoguePanel {
         int boxWidth = cinematic ? width : Math.min(BOX_MAX_WIDTH, width - MARGIN * 2);
         int textWidth = boxWidth - PADDING * 2;
         ResourceLocation portrait = portraitTexture();
-        int portraitWidth = portrait == null ? 0 : PORTRAIT_SIZE + PORTRAIT_GAP;
-        int contentWidth = textWidth - portraitWidth;
+        int portraitWidth = 0;
+        int portraitHeight = 0;
+        if (portrait != null) {
+            int[] size = portraitSize(portrait);
+            portraitWidth = size[0];
+            portraitHeight = size[1];
+        }
+        int portraitColumn = portrait == null ? 0 : portraitWidth + PORTRAIT_GAP;
+        int contentWidth = textWidth - portraitColumn;
 
         List<FormattedCharSequence> fullLines = font.split(payload.text(), Math.max(20, contentWidth));
         int nameHeight = payload.speakerName().isPresent() ? LINE_HEIGHT + 4 : 0;
         int optionsHeight = options.isEmpty() ? 0 : options.size() * OPTION_HEIGHT + OPTION_INDENT;
-        int contentHeight = PADDING * 2 + Math.max(0, portrait == null ? 0 : PORTRAIT_SIZE - LINE_HEIGHT * 2)
-                + nameHeight + fullLines.size() * LINE_HEIGHT + optionsHeight;
+        int portraitOverflow = portrait == null ? 0 : Math.max(0, portraitHeight - LINE_HEIGHT * 2);
+        int contentHeight = PADDING * 2 + portraitOverflow + nameHeight
+                + fullLines.size() * LINE_HEIGHT + optionsHeight;
 
         this.boxLeft = cinematic ? 0 : (width - boxWidth) / 2;
         this.boxRight = cinematic ? width : boxLeft + boxWidth;
@@ -177,8 +208,8 @@ public final class DialoguePanel {
         int x = boxLeft + PADDING;
         int y = boxTop + PADDING;
         if (portrait != null) {
-            graphics.blit(portrait, x, y, 0, 0, PORTRAIT_SIZE, PORTRAIT_SIZE, PORTRAIT_SIZE, PORTRAIT_SIZE);
-            x += PORTRAIT_SIZE + PORTRAIT_GAP;
+            graphics.blit(portrait, x, y, 0, 0, portraitWidth, portraitHeight, portraitWidth, portraitHeight);
+            x += portraitColumn;
         }
         this.textLeft = x;
 
@@ -202,8 +233,7 @@ public final class DialoguePanel {
         }
 
         this.optionLeft = textLeft;
-        int optionTopY = boxTop + PADDING + nameHeight + fullLines.size() * LINE_HEIGHT
-                + Math.max(0, portrait == null ? 0 : PORTRAIT_SIZE - LINE_HEIGHT * 2);
+        int optionTopY = boxTop + PADDING + nameHeight + fullLines.size() * LINE_HEIGHT + portraitOverflow;
         this.optionTop = optionTopY + OPTION_INDENT;
         this.hovered = -1;
         for (int i = 0; i < options.size(); i++) {

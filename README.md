@@ -26,7 +26,7 @@ repositories {
 }
 
 dependencies {
-    implementation "com.mornfire:sqdclib:2.1.2"
+    implementation "com.mornfire:sqdclib:2.2.0"
 }
 ```
 
@@ -443,7 +443,24 @@ public static void onQuestDone(QuestCompletedEvent event) {
 }
 ```
 
-`portrait` 是一个资源位置 贴图放在 `assets/<命名空间>/textures/gui/portrait/<路径>.png` 界面上按 48x48 绘制 建议贴图也用 48x48 尺寸不符会被拉伸
+`portrait` 除了写在 `speaker` 里 也可以写在节点上 或者写在对话定义顶层作为默认值 优先级是 节点 高于 说话人 高于 定义顶层
+
+```json
+{
+  "start": "greet",
+  "portrait": "ymondf:elder",
+  "nodes": {
+    "lore": {
+      "portrait": "ymondf:textures/gui/avatar_portrait.png",
+      "text": { "text": "..." }
+    }
+  }
+}
+```
+
+写简写时贴图放在 `assets/<命名空间>/textures/gui/portrait/<路径>.png` 界面上按 48 像素的最长边等比缩放
+
+如果路径以 `textures/` 开头或者以 `.png` 结尾 就会被当成完整贴图路径原样使用 所以 `ymondf:textures/gui/avatar_portrait.png` 直接指向那张图 不会再拼前缀 两种写法可以混用
 
 不写 `portrait` 就只显示名字 不占位置
 
@@ -656,6 +673,10 @@ Dialogues.definition(player, dialogueId);
 除了文字和淡入淡出 一个时间轴事件还可以带 `sound` `animation` `player_stand_in` `qte` 四种子效果 各自的字段见下面每一节 同一个事件可以同时带多种 它们按 音效 动画 替身 QTE 默认动作 的顺序生效
 
 `music` 写一个音效 ID 过场开始时循环播放 结束时停 被跳过时也停 用这个就不用在 tick 0 手写一个 `sound` 事件 也就不会出现跳过之后音乐还在响的情况
+
+这里的 ID 是 **SoundEvent 的事件名** 也就是 `sounds.json` 里定义的那个键 不是音频文件的路径 写 `ymondf:avatar_descent` 对应 `assets/ymondf/sounds.json` 里的一条 `"avatar_descent"` 记录 音频文件本身在 `assets/ymondf/sounds/avatar_descent.ogg`
+
+找不到对应事件时会在服务端日志里打一条警告 不会静默失败
 
 ### 每 tick 回调
 
@@ -916,6 +937,32 @@ data/<包命名空间>/sqdclib/story_cutscene/<演出名>.json
 
 三个定义都可以写一个可选的 `schema` 字段 默认 1 当前也是 1 以后加了新字段会把版本提上去 旧版本遇到更高的 schema 会直接报错并跳过这个文件 而不是按缺省值解析出半个正确的结果 那种沉默的错最难查
 
+---
+
+## 代码内注册
+
+数据包不是唯一入口 三个模块都能直接在 Java 里注册定义 代码注册优先于数据包注册表 而且不受数据包加载影响
+
+```java
+Cutscenes.register(id, new CutsceneDefinition(...));
+Dialogues.register(id, new DialogueDefinition(...));
+Quests.register(id, new QuestDefinition(...));
+```
+
+配套方法三个模块都有
+
+```java
+Cutscenes.unregister(id)      // 返回是否真的移除了
+Cutscenes.registered()        // 当前代码注册的 id
+Quests.allIds(player)         // 代码注册加数据包注册 合并去重 任务界面用这个
+```
+
+查询入口会自动先查代码注册再查注册表 所以调用方不用关心定义来自哪里
+
+代码注册的时机要在 mod 构造阶段 或者至少在使用之前 客户端和服务端都会执行同一份注册代码 所以两边看到的内容一致 任务界面也不例外
+
+这条路径完全绕开数据包 命名空间、目录层级、`pack.mcmeta` 都不参与 适合把整场演出用 Java 建出来
+
 文本字段可以写完整的原版文本组件
 
 ```json
@@ -1104,6 +1151,11 @@ StoryBridge.questCompleter(...)
 
 StoryActions.register(type, mapCodec)           // 注册自定义动作类型
 StoryActions.registered()                       // 已注册的类型
+
+Cutscenes.register(id, definition)              // 代码内注册 优先于数据包
+Dialogues.register(id, definition)
+Quests.register(id, definition)
+Quests.allIds(player)                           // 代码注册与数据包注册的合并
 ```
 
 ---

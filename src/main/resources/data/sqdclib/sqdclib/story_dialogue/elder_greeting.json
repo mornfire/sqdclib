@@ -4,6 +4,7 @@
   "lock_movement": true,
   "placement": "bottom",
   "text_speed": 2,
+  "portrait": "sqdclib:elder",
   "nodes": {
     "greet": {
       "speaker": {
