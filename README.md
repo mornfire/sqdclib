@@ -26,7 +26,7 @@ repositories {
 }
 
 dependencies {
-    implementation "com.mornfire:sqdclib:2.2.0"
+    implementation "com.mornfire:sqdclib:3.0.0"
 }
 ```
 
@@ -923,6 +923,59 @@ cinematic 的压暗层会盖住演出画面但不会盖住黑幕和台词 中间
 
 ---
 
+## 视频过场
+
+过场可以整段换成一段视频 全屏播放 自带上下黑幕 播完自动关闭并通知服务端
+
+```json
+{
+  "type": "video",
+  "video_id": "ymondf:videos/ultimate_new_moon",
+  "lock_movement": true,
+  "audio": "ymondf:video_audio"
+}
+```
+
+文件放在 `data/<包命名空间>/sqdclib/story_cutscene/<名字>.json` 注意那一层 `sqdclib/`
+
+代码里也可以直接播
+
+```java
+Cutscenes.playVideo(player, ResourceLocation.parse("ymondf:videos/ultimate_new_moon"));
+```
+
+### 格式
+
+只支持 **MP4 + H.264** 解码器是 JCodec 纯 Java 实现 已经打包进 jar 不需要额外安装任何东西
+
+**不支持 WebM / VP9** 纯 Java 没有可用的 VP9 解码实现 硬要支持只能引入 FFmpeg 的 native 库 那会把 jar 从 250 KB 变成几百 MB 对模组分发不划算
+
+视频放在 `assets/<命名空间>/videos/<名字>.mp4` 写 `ymondf:ultimate_new_moon` 会自动补成 `ymondf:videos/ultimate_new_moon.mp4` 写完整路径也认
+
+### 音频
+
+JCodec 只解视频轨 不解音频 所以视频文件里的音轨会被忽略 声音要单独给
+
+`audio` 写一个 SoundEvent 的 id 和视频同时开始播放 音频文件照常放在 `assets/<命名空间>/sounds/` 并在 `sounds.json` 里注册 具体写法和 `music` 一样
+
+播放期间会停掉背景音乐和天气音效 结束后游戏自己恢复
+
+### 播放流程
+
+资源从 jar 里复制到临时文件再交给解码器 因为解码器需要可随机访问的输入
+
+解码在独立线程 主线程每 tick 只做一次纹理上传 所以过场期间不会掉帧
+
+按时间戳丢帧追赶而不是逐帧等待 视频慢了就跳帧 不会越播越慢
+
+### 失败处理
+
+视频缺失 解码报错 或者 3 秒内没解出第一帧 都会直接关闭界面并按失败上报 玩家不会卡在黑屏里 失败原因带完整路径打在客户端日志
+
+服务端收到 `VideoFinishedEvent` 可以知道成功还是失败 再决定要不要继续战斗逻辑
+
+---
+
 ## 数据包路径
 
 ```
@@ -1124,6 +1177,9 @@ Cutscenes.isPlaying(player)
 Cutscenes.isSkippable(player)
 Cutscenes.currentCutscene(player)
 Cutscenes.definition(player, id)
+Cutscenes.playVideo(player, videoId)             // 全屏播放视频 结束由服务端收通知
+Cutscenes.playVideo(player, videoId, audio, lockMovement)
+Cutscenes.isVideoPlaying(player)
 ```
 
 音乐

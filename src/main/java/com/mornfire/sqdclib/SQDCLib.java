@@ -7,9 +7,11 @@ import com.mornfire.sqdclib.cutscene.net.CutsceneSeekPayload;
 import com.mornfire.sqdclib.cutscene.net.CutsceneSkipPayload;
 import com.mornfire.sqdclib.cutscene.net.CutsceneStartPayload;
 import com.mornfire.sqdclib.cutscene.net.CutsceneStopPayload;
+import com.mornfire.sqdclib.cutscene.net.PlayVideoPayload;
 import com.mornfire.sqdclib.cutscene.net.QteResultPayload;
 import com.mornfire.sqdclib.cutscene.net.QteStartPayload;
 import com.mornfire.sqdclib.cutscene.net.StandInPayload;
+import com.mornfire.sqdclib.cutscene.net.VideoFinishedPayload;
 import com.mornfire.sqdclib.dialogue.DialogueDefinition;
 import com.mornfire.sqdclib.dialogue.Dialogues;
 import com.mornfire.sqdclib.dialogue.net.DialogueClosePayload;
@@ -39,7 +41,7 @@ import org.slf4j.Logger;
 @Mod(SQDCLib.MOD_ID)
 public final class SQDCLib {
     public static final String MOD_ID = "sqdclib";
-    public static final String NETWORK_VERSION = "3";
+    public static final String NETWORK_VERSION = "4";
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
@@ -88,6 +90,9 @@ public final class SQDCLib {
         registrar.playToClient(StandInPayload.TYPE, StandInPayload.STREAM_CODEC, StandInPayload::handle);
         registrar.playToClient(MusicStartPayload.TYPE, MusicStartPayload.STREAM_CODEC, MusicStartPayload::handle);
         registrar.playToClient(MusicStopPayload.TYPE, MusicStopPayload.STREAM_CODEC, MusicStopPayload::handle);
+        registrar.playToClient(PlayVideoPayload.TYPE, PlayVideoPayload.STREAM_CODEC, PlayVideoPayload::handle);
+        registrar.playToServer(VideoFinishedPayload.TYPE, VideoFinishedPayload.STREAM_CODEC,
+                VideoFinishedPayload::handle);
     }
 
     private void registerDataPackRegistries(DataPackRegistryEvent.NewRegistry event) {

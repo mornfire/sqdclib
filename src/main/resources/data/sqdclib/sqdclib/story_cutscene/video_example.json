@@ -1,0 +1,6 @@
+{
+  "type": "video",
+  "video_id": "sqdclib:videos/example",
+  "lock_movement": true,
+  "skippable": false
+}

@@ -16,31 +16,42 @@ public record CutsceneDefinition(
         boolean letterbox,
         boolean skippable,
         Optional<ResourceLocation> music,
+        Optional<ResourceLocation> videoId,
+        Optional<ResourceLocation> audio,
         List<CameraKeyframe> camera,
         List<CutsceneEvent> events,
         Optional<Credits> credits) {
 
-    public static final int CURRENT_SCHEMA = 2;
+    public static final int CURRENT_SCHEMA = 3;
 
     public static final Codec<CutsceneDefinition> CODEC = RecordCodecBuilder.<CutsceneDefinition>create(instance -> instance.group(
             Codec.INT.optionalFieldOf("schema", CURRENT_SCHEMA).forGetter(CutsceneDefinition::schema),
-            Codec.INT.fieldOf("duration").forGetter(CutsceneDefinition::duration),
+            Codec.INT.optionalFieldOf("duration", 0).forGetter(CutsceneDefinition::duration),
             Codec.BOOL.optionalFieldOf("lock_movement", true).forGetter(CutsceneDefinition::lockMovement),
             Codec.BOOL.optionalFieldOf("letterbox", true).forGetter(CutsceneDefinition::letterbox),
             Codec.BOOL.optionalFieldOf("skippable", false).forGetter(CutsceneDefinition::skippable),
             ResourceLocation.CODEC.optionalFieldOf("music").forGetter(CutsceneDefinition::music),
+            ResourceLocation.CODEC.optionalFieldOf("video_id").forGetter(CutsceneDefinition::videoId),
+            ResourceLocation.CODEC.optionalFieldOf("audio").forGetter(CutsceneDefinition::audio),
             CameraKeyframe.CODEC.listOf().optionalFieldOf("camera", List.of())
                     .forGetter(CutsceneDefinition::camera),
             CutsceneEvent.CODEC.listOf().optionalFieldOf("events", List.of())
                     .forGetter(CutsceneDefinition::events),
             Credits.CODEC.optionalFieldOf("credits").forGetter(CutsceneDefinition::credits))
             .apply(instance, CutsceneDefinition::new))
-            .validate(CutsceneDefinition::validateSchema);
+            .validate(CutsceneDefinition::validate);
 
-    private static DataResult<CutsceneDefinition> validateSchema(CutsceneDefinition definition) {
+    public boolean isVideo() {
+        return videoId.isPresent();
+    }
+
+    private static DataResult<CutsceneDefinition> validate(CutsceneDefinition definition) {
         if (definition.schema() > CURRENT_SCHEMA) {
             return DataResult.error(() -> "cutscene schema " + definition.schema()
                     + " is newer than this build supports (" + CURRENT_SCHEMA + ")");
+        }
+        if (!definition.isVideo() && definition.duration() <= 0) {
+            return DataResult.error(() -> "a timed cutscene needs a positive duration");
         }
         return DataResult.success(definition);
     }

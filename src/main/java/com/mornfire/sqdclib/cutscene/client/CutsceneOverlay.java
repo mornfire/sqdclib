@@ -13,15 +13,28 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 
 public final class CutsceneOverlay {
-    private static final int BAR_DIVISOR = 8;
+    private static final int BAR_DIVISOR = 6;   // 每片 ≈16.7% 屏高
     private static final int TEXT_COLOR = 0xFFFFFFFF;
     private static final int TEXT_SPACING = 14;
     private static final int TEXT_BOTTOM_PADDING = 24;
     private static final int CREDIT_COLOR = 0xFFFFFF;
 
+    private static boolean loggedOnce;
+
     public static void render(GuiGraphics graphics, DeltaTracker deltaTracker) {
         if (!ClientCutscenes.isPlaying()) {
+            if (loggedOnce) {
+                loggedOnce = false;
+                org.slf4j.LoggerFactory.getLogger("ymondf-cinematic")
+                        .info("[ymondf-cinematic] overlay stopped");
+            }
             return;
+        }
+        if (!loggedOnce) {
+            loggedOnce = true;
+            org.slf4j.LoggerFactory.getLogger("ymondf-cinematic").info(
+                    "[ymondf-cinematic] overlay rendering, letterbox={}",
+                    ClientCutscenes.letterbox());
         }
         float partialTick = deltaTracker.getGameTimeDeltaPartialTick(false);
         int width = graphics.guiWidth();

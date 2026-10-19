@@ -74,7 +74,17 @@ public final class CutsceneClientEvents {
     @SubscribeEvent
     public static void onRenderPlayer(RenderPlayerEvent.Pre event) {
         LocalPlayer player = Minecraft.getInstance().player;
-        if (player != null && ClientStandIn.isActive() && event.getEntity() == player) {
+        // 过场期间玩家自己也不该出现在画面里（第一人称身体/第三人称模型都会穿帮）
+        if (player != null && (ClientStandIn.isActive() || ClientCutscenes.isPlaying())
+                && event.getEntity() == player) {
+            event.setCanceled(true);
+        }
+    }
+
+    /** 过场期间隐藏第一人称的手和手持物。 */
+    @SubscribeEvent
+    public static void onRenderHand(net.neoforged.neoforge.client.event.RenderHandEvent event) {
+        if (ClientCutscenes.isPlaying()) {
             event.setCanceled(true);
         }
     }

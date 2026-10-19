@@ -16,6 +16,11 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 
 public final class ClientCutscenes {
+    static void debugLog(String message, Object... args) {
+        org.slf4j.LoggerFactory.getLogger("ymondf-cinematic")
+                .info("[ymondf-cinematic] " + message, args);
+    }
+
     private static final List<ActiveText> TEXTS = new ArrayList<>();
 
     private static CutsceneDefinition definition;

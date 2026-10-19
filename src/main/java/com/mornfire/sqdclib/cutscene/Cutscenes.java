@@ -4,9 +4,11 @@ import com.mojang.brigadier.StringReader;
 import com.mornfire.sqdclib.SQDCLib;
 import com.mornfire.sqdclib.cutscene.event.CutsceneFinishedEvent;
 import com.mornfire.sqdclib.cutscene.event.CutsceneTickEvent;
+import com.mornfire.sqdclib.cutscene.event.VideoFinishedEvent;
 import com.mornfire.sqdclib.cutscene.net.CutsceneSeekPayload;
 import com.mornfire.sqdclib.cutscene.net.CutsceneStartPayload;
 import com.mornfire.sqdclib.cutscene.net.CutsceneStopPayload;
+import com.mornfire.sqdclib.cutscene.net.PlayVideoPayload;
 import com.mornfire.sqdclib.cutscene.net.QteStartPayload;
 import com.mornfire.sqdclib.cutscene.net.StandInPayload;
 import com.mornfire.sqdclib.music.Music;
@@ -43,6 +45,7 @@ public final class Cutscenes {
 
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
     private static final Map<ResourceLocation, CutsceneDefinition> CODE_DEFINITIONS = new ConcurrentHashMap<>();
+    private static final Map<UUID, ResourceLocation> PENDING_VIDEOS = new HashMap<>();
 
     private record PendingQte(int id, QteCue cue, int deadline) {}
 
@@ -127,11 +130,14 @@ public final class Cutscenes {
         if (definition.isEmpty()) {
             return false;
         }
+        CutsceneDefinition resolved = definition.get();
+        if (resolved.isVideo()) {
+            return playVideo(player, resolved.videoId().get(), resolved.audio(), resolved.lockMovement());
+        }
         Session previous = SESSIONS.get(player.getUUID());
         if (previous != null) {
             finish(player, previous, CutsceneFinishedEvent.Reason.STOPPED);
         }
-        CutsceneDefinition resolved = definition.get();
         Session session = new Session(cutscene, resolved, onFinish);
         session.tick = Math.max(0, Math.min(startTick, resolved.duration()));
         List<CutsceneEvent> events = resolved.events();
@@ -146,8 +152,34 @@ public final class Cutscenes {
         return true;
     }
 
-    public static boolean seek(ServerPlayer player, int tick) {
-        Session session = SESSIONS.get(player.getUUID());
+    public static boolean playVideo(ServerPlayer player, ResourceLocation videoId) {
+        return playVideo(player, videoId, Optional.empty(), true);
+    }
+
+    public static boolean playVideo(ServerPlayer player, ResourceLocation videoId,
+            Optional<ResourceLocation> audio, boolean lockMovement) {
+        PENDING_VIDEOS.put(player.getUUID(), videoId);
+        PacketDistributor.sendToPlayer(player, new PlayVideoPayload(videoId, audio, lockMovement));
+        return true;
+    }
+
+    public static boolean isVideoPlaying(ServerPlayer player) {
+        return PENDING_VIDEOS.containsKey(player.getUUID());
+    }
+
+    public static void completeVideo(ServerPlayer player, ResourceLocation videoId, boolean success) {
+        ResourceLocation pending = PENDING_VIDEOS.remove(player.getUUID());
+        if (pending == null) {
+            return;
+        }
+        NeoForge.EVENT_BUS.post(new VideoFinishedEvent(player, pending, success));
+    }
+
+    public static void forgetVideo(ServerPlayer player) {
+        PENDING_VIDEOS.remove(player.getUUID());
+    }
+
+    public static boolean seek(ServerPlayer player, int tick) {        Session session = SESSIONS.get(player.getUUID());
         if (session == null) {
             return false;
         }
