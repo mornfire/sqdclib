@@ -145,7 +145,13 @@ public final class VideoDecoder implements AutoCloseable {
     public static Optional<VideoDecoder> tryOpen(ResourceLocation videoId) {
         try {
             return Optional.of(open(videoId));
+        } catch (NoClassDefFoundError missing) {
+            ClientVideos.LOGGER.warn("[sqdclib] video support is not available because JCodec is not on the "
+                    + "classpath; video '{}' will be skipped", videoId);
+            return Optional.empty();
         } catch (Throwable throwable) {
+            ClientVideos.LOGGER.warn("[sqdclib] could not open video '{}': {}",
+                    videoId, throwable.toString());
             return Optional.empty();
         }
     }

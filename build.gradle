@@ -25,20 +25,8 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
-    implementation 'org.jcodec:jcodec:0.2.5'
-    implementation 'org.jcodec:jcodec-javase:0.2.5'
-    jarJar(implementation('org.jcodec:jcodec:0.2.5')) {
-        version {
-            strictly '[0.2.5, 0.3)'
-            prefer '0.2.5'
-        }
-    }
-    jarJar(implementation('org.jcodec:jcodec-javase:0.2.5')) {
-        version {
-            strictly '[0.2.5, 0.3)'
-            prefer '0.2.5'
-        }
-    }
+    compileOnly 'org.jcodec:jcodec:0.2.5'
+    compileOnly 'org.jcodec:jcodec-javase:0.2.5'
 }
 
 sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
