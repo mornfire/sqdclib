@@ -17,7 +17,8 @@ public record DialogueNode(
         List<StoryAction> actions,
         Optional<Component> continueText,
         Optional<InputSpec> input,
-        Optional<ResourceLocation> portrait) {
+        Optional<ResourceLocation> portrait,
+        Optional<Component> identity) {
 
     public static final Codec<DialogueNode> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Speaker.CODEC.optionalFieldOf("speaker").forGetter(DialogueNode::speaker),
@@ -27,7 +28,8 @@ public record DialogueNode(
             StoryAction.CODEC.listOf().optionalFieldOf("actions", List.of()).forGetter(DialogueNode::actions),
             ComponentSerialization.CODEC.optionalFieldOf("continue_text").forGetter(DialogueNode::continueText),
             InputSpec.CODEC.optionalFieldOf("input").forGetter(DialogueNode::input),
-            ResourceLocation.CODEC.optionalFieldOf("portrait").forGetter(DialogueNode::portrait))
+            ResourceLocation.CODEC.optionalFieldOf("portrait").forGetter(DialogueNode::portrait),
+            ComponentSerialization.CODEC.optionalFieldOf("identity").forGetter(DialogueNode::identity))
             .apply(instance, DialogueNode::new));
 
     public DialogueOption continueOption() {

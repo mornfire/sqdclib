@@ -20,13 +20,31 @@ repositories {
     }
 }
 
+configurations {
+    jcodecBundle
+}
+
 dependencies {
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
     compileOnly 'org.jcodec:jcodec:0.2.5'
-    compileOnly 'org.jcodec:jcodec-javase:0.2.5'
+    jcodecBundle 'org.jcodec:jcodec:0.2.5'
+}
+
+tasks.named('jar', Jar).configure {
+    if (project.hasProperty('withVideo')) {
+        archiveClassifier = 'video'
+        from({ configurations.jcodecBundle.collect { zipTree(it) } }) {
+            exclude 'META-INF/MANIFEST.MF'
+            exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
+            exclude 'module-info.class'
+            exclude 'META-INF/versions/*/module-info.class'
+            exclude 'META-INF/maven/**'
+        }
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
 }
 
 sourceSets.test.compileClasspath += sourceSets.main.compileClasspath

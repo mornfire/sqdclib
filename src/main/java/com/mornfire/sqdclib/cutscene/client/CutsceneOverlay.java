@@ -1,6 +1,8 @@
 package com.mornfire.sqdclib.cutscene.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mornfire.sqdclib.client.GlassPanel;
+import com.mornfire.sqdclib.client.SqdTheme;
 import com.mornfire.sqdclib.cutscene.CreditsRoll;
 import com.mornfire.sqdclib.cutscene.CutsceneDefinition;
 import java.util.List;
@@ -10,13 +12,14 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 
 public final class CutsceneOverlay {
     private static final int BAR_DIVISOR = 6;   // 每片 ≈16.7% 屏高
-    private static final int TEXT_COLOR = 0xFFFFFFFF;
-    private static final int TEXT_SPACING = 14;
-    private static final int TEXT_BOTTOM_PADDING = 24;
+    private static final int TEXT_BOTTOM_PADDING = 26;
+    private static final int PANEL_PADDING = 12;
+    private static final int TEXT_LINE_HEIGHT = 13;
     private static final int CREDIT_COLOR = 0xFFFFFF;
 
     private static boolean loggedOnce;
@@ -58,15 +61,39 @@ public final class CutsceneOverlay {
     }
 
     private static void renderTexts(GuiGraphics graphics, int width, int height, int bar) {
+        if (com.mornfire.sqdclib.dialogue.client.ClientDialogues.panel() != null) {
+            // 对话面板已经占了下半屏，旁白再叠上去会撞在一起
+            return;
+        }
         List<Component> texts = ClientCutscenes.activeTexts();
         if (texts.isEmpty()) {
             return;
         }
         Font font = Minecraft.getInstance().font;
-        int textY = height - bar - TEXT_BOTTOM_PADDING;
-        for (Component text : texts) {
-            graphics.drawCenteredString(font, text, width / 2, textY, TEXT_COLOR);
-            textY -= TEXT_SPACING;
+        net.minecraft.network.chat.MutableComponent joined = Component.empty();
+        for (int i = 0; i < texts.size(); i++) {
+            if (i > 0) {
+                joined.append(Component.literal("\n"));
+            }
+            joined.append(SqdTheme.rounded(texts.get(i)));
+        }
+        int maxWidth = Math.max(180, Math.min(560, width - 160));
+        List<FormattedCharSequence> lines = font.split(joined, maxWidth);
+        int textWidth = 0;
+        for (FormattedCharSequence line : lines) {
+            textWidth = Math.max(textWidth, font.width(line));
+        }
+        int panelWidth = Mth.clamp(textWidth + PANEL_PADDING * 2, 280, maxWidth + PANEL_PADDING * 2);
+        int panelHeight = lines.size() * TEXT_LINE_HEIGHT + PANEL_PADDING * 2;
+        int x = (width - panelWidth) / 2;
+        int y = height - bar - TEXT_BOTTOM_PADDING - panelHeight;
+        GlassPanel.draw(graphics, x, y, panelWidth, panelHeight, 10);
+
+        int textY = y + PANEL_PADDING;
+        for (FormattedCharSequence line : lines) {
+            graphics.drawString(font, line, (width - font.width(line)) / 2, textY,
+                    SqdTheme.TEXT, false);
+            textY += TEXT_LINE_HEIGHT;
         }
     }
 
@@ -99,7 +126,8 @@ public final class CutsceneOverlay {
                 pose.pushPose();
                 pose.translate(width / 2.0F, y, 0.0F);
                 pose.scale(line.scale(), line.scale(), 1.0F);
-                graphics.drawCenteredString(font, line.text(), 0, 0, line.color().orElse(CREDIT_COLOR));
+                graphics.drawCenteredString(font, SqdTheme.rounded(line.text()), 0, 0,
+                        line.color().orElse(CREDIT_COLOR));
                 pose.popPose();
             }
             y += lineHeight + gaps[i];

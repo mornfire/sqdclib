@@ -244,6 +244,7 @@ public final class Dialogues {
                 dialogue,
                 nodeId,
                 speaker == null ? Optional.empty() : Optional.of(speaker.name()),
+                node.identity().map(raw -> StoryText.resolve(player, raw)),
                 portrait,
                 StoryText.resolve(player, node.text()),
                 available.stream().map(option -> StoryText.resolve(player, option.text())).toList(),

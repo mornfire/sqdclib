@@ -1,7 +1,6 @@
 package com.mornfire.sqdclib.cutscene.client.video;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import java.awt.image.BufferedImage;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,12 +15,16 @@ import net.minecraft.server.packs.resources.Resource;
 import org.jcodec.api.FrameGrab;
 import org.jcodec.api.PictureWithMetadata;
 import org.jcodec.common.io.NIOUtils;
-import org.jcodec.scale.AWTUtil;
+import org.jcodec.common.model.ColorSpace;
+import org.jcodec.common.model.Picture;
+import org.jcodec.scale.Transform;
+import org.jcodec.scale.Yuv420pToRgb;
 import org.jetbrains.annotations.Nullable;
 
 public final class VideoDecoder implements AutoCloseable {
     private static final int QUEUE_CAPACITY = 8;
     private static final long POLL_MILLIS = 8L;
+    private static final Transform TRANSFORM = new Yuv420pToRgb();
 
     public record Frame(NativeImage image, double timestamp) {}
 
@@ -96,8 +99,7 @@ public final class VideoDecoder implements AutoCloseable {
                     exhausted = true;
                     return;
                 }
-                Frame frame = new Frame(toNativeImage(AWTUtil.toBufferedImage(picture.getPicture())),
-                        picture.getTimestamp());
+                Frame frame = new Frame(toNativeImage(picture.getPicture()), picture.getTimestamp());
                 while (running) {
                     if (queue.offer(frame, POLL_MILLIS, TimeUnit.MILLISECONDS)) {
                         break;
@@ -113,15 +115,24 @@ public final class VideoDecoder implements AutoCloseable {
         }
     }
 
-    private static NativeImage toNativeImage(BufferedImage image) {
-        int width = image.getWidth();
-        int height = image.getHeight();
-        NativeImage result = new NativeImage(width, height, false);
-        int[] pixels = image.getRGB(0, 0, width, height, null, 0, width);
-        for (int index = 0; index < pixels.length; index++) {
-            result.setPixelRGBA(index % width, index / width, pixels[index]);
+    private static NativeImage toNativeImage(Picture source) {
+        int width = source.getWidth();
+        int height = source.getHeight();
+        Picture rgb = Picture.create(width, height, ColorSpace.RGB);
+        TRANSFORM.transform(source, rgb);
+        byte[] data = rgb.getPlaneData(0);
+        NativeImage image = new NativeImage(width, height, true);
+        for (int y = 0; y < height; y++) {
+            int rowStart = y * width * 3;
+            for (int x = 0; x < width; x++) {
+                int index = rowStart + x * 3;
+                int red = data[index] & 0xFF;
+                int green = data[index + 1] & 0xFF;
+                int blue = data[index + 2] & 0xFF;
+                image.setPixelRGBA(x, y, 0xFF000000 | (blue << 16) | (green << 8) | red);
+            }
         }
-        return result;
+        return image;
     }
 
     private static void drain(BlockingQueue<Frame> queue) {

@@ -1,0 +1,6 @@
+ZCOOL KuaiLe (站酷快乐体) — used for cinematic narration and dialogue text.
+Source: https://github.com/google/fonts/tree/main/ofl/zcoolkuaile
+License: SIL Open Font License 1.1
+License text: https://openfontlicense.org/open-font-license-official-text/
+
+The font file is bundled unmodified as assets/sqdclib/font/rounded.ttf.

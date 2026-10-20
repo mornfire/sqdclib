@@ -21,6 +21,7 @@ public record DialogueOpenPayload(
         ResourceLocation dialogue,
         String node,
         Optional<Component> speakerName,
+        Optional<Component> identity,
         Optional<ResourceLocation> portrait,
         Component text,
         List<Component> options,
@@ -48,6 +49,7 @@ public record DialogueOpenPayload(
         ResourceLocation.STREAM_CODEC.encode(buf, payload.dialogue);
         ByteBufCodecs.STRING_UTF8.encode(buf, payload.node);
         ComponentSerialization.OPTIONAL_STREAM_CODEC.encode(buf, payload.speakerName);
+        ComponentSerialization.OPTIONAL_STREAM_CODEC.encode(buf, payload.identity);
         PORTRAIT_CODEC.encode(buf, payload.portrait);
         ComponentSerialization.STREAM_CODEC.encode(buf, payload.text);
         OPTION_CODEC.encode(buf, payload.options);
@@ -63,6 +65,7 @@ public record DialogueOpenPayload(
         ResourceLocation dialogue = ResourceLocation.STREAM_CODEC.decode(buf);
         String node = ByteBufCodecs.STRING_UTF8.decode(buf);
         Optional<Component> speakerName = ComponentSerialization.OPTIONAL_STREAM_CODEC.decode(buf);
+        Optional<Component> identity = ComponentSerialization.OPTIONAL_STREAM_CODEC.decode(buf);
         Optional<ResourceLocation> portrait = PORTRAIT_CODEC.decode(buf);
         Component text = ComponentSerialization.STREAM_CODEC.decode(buf);
         List<Component> options = OPTION_CODEC.decode(buf);
@@ -72,7 +75,7 @@ public record DialogueOpenPayload(
         DialoguePlacement placement = DialoguePlacement.values()[ByteBufCodecs.VAR_INT.decode(buf)];
         int speakerColor = ByteBufCodecs.INT.decode(buf);
         Optional<InputSpec> input = INPUT_CODEC.decode(buf);
-        return new DialogueOpenPayload(dialogue, node, speakerName, portrait, text, options, lockMovement,
+        return new DialogueOpenPayload(dialogue, node, speakerName, identity, portrait, text, options, lockMovement,
                 mode, textSpeed, placement, speakerColor, input);
     }
 
